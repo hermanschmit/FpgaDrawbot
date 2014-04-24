@@ -1,0 +1,510 @@
+'''
+Module for Canny edge detection
+Requirements: 1.scipy.(numpy is also mandatory, but it is assumed to be
+                      installed with scipy)
+              2. Python Image Library(only for viewing the final image.)
+Author: Vishwanath
+contact: vishwa.hyd@gmail.com
+'''
+import sys
+
+import SA_base
+import CannyTSP
+
+from scipy import *
+from scipy.misc import *
+from scipy.signal import convolve2d as conv
+from scipy.spatial import Delaunay
+import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
+import numpy
+import random
+
+def hyp(ax,ay,bx,by):
+    xdiff = ax - bx
+    ydiff = ay - by
+    return math.hypot(xdiff,ydiff)
+
+def colinear(p0, p1, p2):
+    x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
+    x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
+    return x1 * y2 == x2 * y1
+
+def simplifySegments(s):
+    if len(s) < 3:
+        return s
+    new_s = []
+    p0 = s[0]
+    p1 = s[1]
+    new_s.append(p0)
+    for p2 in s[2:]:
+        if colinear(p0,p1,p2):
+            p1 = p2
+        else:
+            new_s.append(p1)
+            p0 = p1
+            p1 = p2
+    new_s.append(p2)
+    return new_s
+
+class Canny:
+    """
+        Create instances of this class to apply the Canny edge
+        detection algorithm to an image.
+
+        input: imagename(string),sigma for gaussian blur
+        optional args: thresHigh,thresLow
+
+        output: numpy ndarray.
+
+        P.S: use canny.grad to access the image array
+
+        Note:
+        1. Large images take a lot of time to process, Not yet optimised
+        2. thresHigh will decide the number of edges to be detected. It
+           does not affect the length of the edges being detected
+        3. thresLow will decide the lenght of hte edges, will not affect
+           the number of edges that will be detected.
+
+        usage example:
+        >>>canny = Canny('image.jpg', 1.4, 50, 10)
+        >>>im = canny.grad
+        >>>Image.fromarray(im).show()
+    """
+
+    def delaunayExper(self):
+        pointslist = []
+        for i in self.segmentList:
+            pointslist.append(i[0])
+            if len(i) > 1:
+                pointslist.append(i[-1])
+        points = array(pointslist)
+        tri = Delaunay(points)
+        print points
+        plt.triplot(points[:,0], points[:,1], tri.vertices.copy())
+        plt.plot(points[:,0],points[:,1], 'o')
+        plt.show()
+
+    def optimizeLineSequence(self):
+        self.x, self.y = self.grad.shape
+        self.segmentList.insert(0, [[self.x // 2, self.y // 2]])
+        print self.segmentList
+        self.optInst = CannyTSP.CannyTSP(self.segmentList)
+        self.opt = SA_base.SA_base(self.optInst, 500, 10000, 0.9)
+        self.opt.optimize()
+        self.segmentList = self.optInst.OrderedList
+        print self.segmentList
+
+    def segment2grad(self):
+        self.grad[:, :] = 0
+        for s in self.segmentList:
+            for p in s:
+                self.grad[p[0], p[1]] = -1
+        s0 = self.segmentList[0]
+        for s1 in self.segmentList[1:]:
+            self.bresenhamFillIn(s0[-1], s1[0])
+            s0 = s1
+
+    def __init__(self, image_name, sigma = 1.4, thresHigh = 50, thresLow = 5, drawBetween=False):
+        """
+
+        :param imname:
+        :param sigma:
+        :param thresHigh:
+        :param thresLow:
+        """
+        self.imin = imread(image_name, flatten = True)
+
+        # Create the gauss kernel for blurring the input image
+        # It will be convolved with the image
+        gausskernel = self.gaussFilter(sigma,5)
+        # fx is the filter for vertical gradient
+        # fy is the filter for horizontal gradient
+        # Please not the vertical direction is positive X
+
+        fx = self.createFilter([1,  1,  1,
+                                0,  0,  0,
+                               -1, -1, -1])
+        fy = self.createFilter([-1, 0, 1,
+                                -1, 0, 1,
+                                -1, 0, 1])
+
+        imout = conv(self.imin, gausskernel)[1:-1, 1:-1]
+        gradx = conv(imout, fx)[1:-1, 1:-1]
+        grady = conv(imout, fy)[1:-1, 1:-1]
+
+        # Net gradient is the square root of sum of square of the horizontal
+        # and vertical gradients
+
+        grad = hypot(gradx, grady)
+        theta = arctan2(grady, gradx)
+        theta = 180 + (180/pi)*theta
+        # Only significant magnitudes are considered. All others are removed
+        x,y = where(grad < 10)
+        theta[x, y] = 0
+        grad[x, y] = 0
+
+        # The angles are quantized. This is the first step in non-maximum
+        # supression. Since, any pixel will have only 4 approach directions.
+        x0, y0 = where(((theta<22.5)+(theta>157.5)*(theta<202.5)
+                       +(theta>337.5)) == True)
+        x45, y45 = where( ((theta>22.5)*(theta<67.5)
+                          +(theta>202.5)*(theta<247.5)) == True)
+        x90, y90 = where( ((theta>67.5)*(theta<112.5)
+                          +(theta>247.5)*(theta<292.5)) == True)
+        x135, y135 = where( ((theta>112.5)*(theta<157.5)
+                            +(theta>292.5)*(theta<337.5)) == True)
+
+        self.theta = theta
+        # Image.fromarray(self.theta).convert('L').save('Angle map.jpg')
+        self.theta[x0, y0] = 0
+        self.theta[x45, y45] = 45
+        self.theta[x90, y90] = 90
+        self.theta[x135, y135] = 135
+        x,y = self.theta.shape
+        self.grad = grad.copy()
+
+        # zero out boundaries
+        # x,y = self.grad.shape
+        self.grad = numpy.delete(self.grad,numpy.s_[0:1],0)
+        self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],0)
+        self.grad = numpy.delete(self.grad,numpy.s_[0:1],1)
+        self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],1)
+        #self.grad = numpy.insert(self.grad,(0,1), 0, axis=0)
+        #self.grad = numpy.insert(self.grad,(0,1), 0, axis=1)
+
+        # self.grad[0:1, :] = 0
+        # self.grad[-3:-1, :] = 0
+        # self.grad[:, 0:1] = 0
+        # self.grad[:, -3:-1] = 0
+
+        x, y = self.grad.shape
+
+        for i in range(x):
+            for j in range(y):
+                if self.theta[i, j] == 0:
+                    test = self.nms_check(grad, i, j, 1, 0, -1, 0)
+                    if not test:
+                        self.grad[i, j] = 0
+
+                elif self.theta[i, j] == 45:
+                    test = self.nms_check(grad, i, j, 1, -1, -1, 1)
+                    if not test:
+                        self.grad[i, j] = 0
+
+                elif self.theta[i, j] == 90:
+                    test = self.nms_check(grad, i, j, 0, 1, 0, -1)
+                    if not test:
+                        self.grad[i, j] = 0
+                elif self.theta[i, j] == 135:
+                    test = self.nms_check(grad, i, j, 1, 1, -1, -1)
+                    if not test:
+                        self.grad[i, j] = 0
+
+        init_point = self.stop(self.grad, thresHigh)
+        # Hysteresis tracking. Since we know that significant edges are
+        # continuous contours, we will exploit the same.
+        # thresHigh is used to track the starting point of edges and
+        # thresLow is used to track the whole edge till end of the edge.
+
+        self.segmentList = []
+        # print "initial init_point:", init_point
+        segment = [init_point]
+
+        while init_point != -1:
+            # print 'next segment at',init_point
+            self.grad[init_point[0], init_point[1]] = -1
+            p2 = init_point
+            p1 = init_point
+            p0 = init_point
+            p0 = self.nextNbd(self.grad, p0, p1, p2, thresLow)
+
+            while p0 != -1:
+                segment.append(p0)
+                p2 = p1
+                p1 = p0
+                self.grad[p0[0], p0[1]] = -1
+                p0 = self.nextNbd(self.grad, p0, p1, p2, thresLow)
+
+            if len(segment) >= 2:
+                self.segmentList.append(segment)
+
+            init_point = self.stop(self.grad, thresHigh)
+            segment = [init_point]
+
+    def renderGrad(self):
+        """
+        Convert grad == -1 to pixels
+        """
+        x,y = where(self.grad == -1)
+        self.grad[:, :] = 0
+        self.grad[x, y] = 255
+
+    def bresenhamFillIn(self,p0,p1):
+        "Bresenham's line algorithm"
+        dx = abs(p1[0] - p0[0])
+        dy = abs(p1[1] - p0[1])
+        x, y = p0[0],p0[1]
+        sx = -1 if p0[0] > p1[0] else 1
+        sy = -1 if p0[1] > p1[1] else 1
+        if dx > dy:
+            err = dx / 2.0
+            while x != p1[0]:
+                self.grad[x, y] = -1
+                err -= dy
+                if err < 0:
+                    y += sy
+                    err += dx
+                x += sx
+        else:
+            err = dy / 2.0
+            while y != p1[1]:
+                self.grad[x, y] = -1
+                err -= dx
+                if err < 0:
+                    x += sx
+                    err += dy
+                y += sy
+        self.grad[x, y] = -1
+
+    def segmentConnectLength(self):
+        c = 0.
+        s0 = self.segmentList[0]
+        p0 = s0[-1]
+        for s1 in self.segmentList[1:]:
+            p1 = s1[0]
+            c = c + hypot(p0[0]-p1[0],p0[1]-p1[1])
+            p0 = s1[-1]
+        return c
+
+    def segmentEndPtsGridCoord(self,segment):
+        p0 = segment[0]
+        gx0, gy0 = p0[0]//self.hash_gridsize , p0[1]//self.hash_gridsize
+        p1 = segment[-1]
+        gx1, gy1 = p1[0]//self.hash_gridsize, p1[1]//self.hash_gridsize
+        return (gx0, gy0), (gx1, gy1)
+
+    def segmentEndPtsGrid(self,segment):
+        (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(segment)
+        return self.grid[gx0][gy0], self.grid[gx1][gy1]
+
+    def segmentNeighborCounts(self,segment):
+        (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(segment)
+        return len(self.grid[gx0][gy0]) + len(self.grid[gx1][gy1]) - 2
+
+    def segmentDistance(self,pt,segment):
+        return hypot(pt[0]-segment[0][0],pt[1]-segment[0][1]), hypot(pt[0]-segment[1][0],pt[1]-segment[1][1])
+
+    def connectSegments(self,x_init,y_init):
+        """
+        This method finds connection between segmentList
+        Starts at x_init,y_init
+        prune_ratio determines likelihood of keeping depending on new segment length vs. connecting segment
+
+        """
+        self.segmentList.insert(0, [[x_init, y_init]])
+        cost = self.segmentConnectLength()
+        print cost
+
+        # pre-prune lonely segments?
+
+        # build a grid
+        self.grid = [[[] for i in xrange(self.y//self.hash_gridsize + 1)] for j in range(self.x//self.hash_gridsize + 1)]
+
+        for seg in self.segmentList[1:]:
+            (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(seg)
+            self.grid[gx0][gy0].append(seg)
+            self.grid[gx1][gy1].append(seg)
+
+        # prune segments without neighbors ?
+
+        # start at 0
+
+        seg = self.segmentList[0]
+        for idx in xrange(1,len(self.segmentList)):
+            (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(seg)
+            nextseg = None
+            bestDist = 0.
+            gridsegments = self.grid[gx0][gy0] + self.grid[gx1][gy1]
+            for neighbor_seg in gridsegments:
+                if seg == neighbor_seg:
+                    continue
+                d0,d1 = self.segmentDistance(seg[-1],neighbor_seg)
+                dmin = min(d0,d1)
+                if nextseg == None or dmin < bestDist:
+                    nextseg = neighbor_seg
+                    bestDist = dmin
+                    bestD0D1 = (d0,d1)
+            if nextseg != None:
+                if bestD0D1[0] > bestD0D1[1]:
+                    nextseg.reverse()
+                self.segmentList.remove(nextseg)
+                self.segmentList.insert(idx,nextseg)
+            seg = self.segmentList[idx]
+            idx += 1
+
+        # find nearest in grid
+        # connect
+        # search for next point
+
+        # quench
+        cost = self.segmentConnectLength()
+        for i in xrange(2000 * len(self.segmentList)):
+            pos1 = random.randrange(1, len(self.segmentList)-1, 1)
+            pos2 = random.randrange(1, len(self.segmentList)-1, 1)
+            self.segmentList[pos1],self.segmentList[pos2] = self.segmentList[pos2], self.segmentList[pos1]
+            new_cost = self.segmentConnectLength()
+            if new_cost <= cost:
+                cost = new_cost
+            else:
+                self.segmentList[pos1],self.segmentList[pos2] = self.segmentList[pos2], self.segmentList[pos1]
+
+            # Now try to reverse a list
+            pos3 = random.randrange(1, len(self.segmentList)-1, 1)
+            self.segmentList[pos3].reverse()
+            new_cost = self.segmentConnectLength()
+            if new_cost <= cost:
+                cost = new_cost
+            else:
+                self.segmentList[pos3].reverse()
+            print cost
+
+    def createFilter(self,rawfilter):
+        """
+            This method is used to create an NxN matrix to be used as a filter,
+            given a N*N list
+        """
+        order = pow(len(rawfilter), 0.5)
+        order = int(order)
+        filt_array = array(rawfilter)
+        outfilter = filt_array.reshape((order, order))
+        return outfilter
+
+    def gaussFilter(self,sigma,window = 3):
+        """
+            This method is used to create a gaussian kernel to be used
+            for the blurring purpose. inputs are sigma and the window size
+        """
+        kernel = zeros((window,window))
+        c0 = window // 2
+
+        for x in range(window):
+            for y in range(window):
+                r = hypot((x-c0), (y-c0))
+                val = (1.0/2*pi*sigma*sigma)*exp(-(r*r)/(2*sigma*sigma))
+                kernel[x, y] = val
+        return kernel / kernel.sum()
+
+    def nms_check(self, grad, i, j, x1, y1, x2, y2):
+        """
+            Method for non maximum supression check. A gradient point is an
+            edge only if the gradient magnitude and the slope agree
+
+            for example, consider a horizontal edge. if the angle of gradient
+            is 0 degress, it is an edge point only if the value of gradient
+            at that point is greater than its top and bottom neighbours.
+        """
+        try:
+            if (grad[i,j] > grad[i+x1,j+y1]) and (grad[i,j] > grad[i+x2,j+y2]):
+                return 1
+            else:
+                return 0
+        except IndexError:
+            return -1
+
+    def stop(self,im,thres):
+        """
+            This method is used to find the starting point of an edge.
+        """
+        X,Y = where(im > thres)
+        try:
+            y = Y.min()
+        except:
+            return -1
+        X = X.tolist()
+        Y = Y.tolist()
+        index = Y.index(y)
+        x = X[index]
+        return [x,y]
+
+    def nextNbd(self,im,p0,p1,p2,thres):
+        """
+            This method is used to return the next point on the edge.
+        """
+        kit = [-1,0,1]
+        X,Y = im.shape
+        for i in kit:
+            for j in kit:
+                if (i+j) == 0:
+                    continue
+                x = p0[0]+i
+                y = p0[1]+j
+
+                if (x<0) or (y<0) or (x>=X) or (y>=Y):
+                    continue
+                if ([x,y] == p1) or ([x,y] == p2):
+                    continue
+                if (im[x,y] > thres): #and (im[i,j] < 256):
+                    return [x,y]
+        return -1
+
+    def pruneLonelySegments(self,ratio=100.):
+        newSegmentList = []
+        newSegmentList.append(self.segmentList[0])
+
+        for i in xrange(len(self.segmentList)-3):
+            s0, s1, s2 = self.segmentList[i], self.segmentList[i+1], self.segmentList[i+2]
+            drawn = (hyp(*(s0[-1]  + s1[0])) +
+                     hyp(*(s1[-1]  + s2[0])))
+            segment = len(s1)
+            if drawn < ratio * segment:
+                newSegmentList.append(s1)
+        newSegmentList.append(self.segmentList[-1])
+        self.segmentList = newSegmentList[:]
+
+
+    def pixelscale(self,pt,maxXY):
+        px = float(pt[0]-self.x//2) / maxXY
+        py = float(pt[1]-self.y//2) / maxXY
+        return px, py
+
+    def cArrayWrite(self, fname):
+        f = open(fname,'w')
+        numpts = 0
+        segmentList_simp = []
+        for s in self.segmentList:
+            ns = simplifySegments(s)
+            segmentList_simp.append(simplifySegments(s))
+            numpts += len(ns)
+        f.write("float diag["+repr(numpts+1)+"][2] = {\n")
+        m = max(self.x//2,self.y//2)
+        for s in segmentList_simp:
+            for p in s:
+                x, y = self.pixelscale(p,m)
+                f.write("       {"+repr(y)+", "+repr(x)+"},\n")
+        f.write("       {NAN, NAN}\n")
+        f.write(" };\n")
+        f.close()
+
+
+# End of module Canny
+
+def main(ifile_name, ofile_name1, ofile_carray="shape.h"):
+    canny = Canny(ifile_name)
+    # canny.delaunayExper()
+    canny.optimizeLineSequence()
+    canny.pruneLonelySegments()
+    canny.optimizeLineSequence()
+    print canny.x,canny.y
+    canny.cArrayWrite(ofile_carray)
+    canny.segment2grad()
+    canny.renderGrad()
+    im = canny.grad
+    imsave(ofile_name1,im)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 4:
+        main(sys.argv[1],sys.argv[2],sys.argv[3])
+    else:
+        main(sys.argv[1],sys.argv[2])
