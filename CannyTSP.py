@@ -24,17 +24,9 @@ class CannyTSP(object):
         def validMove():
             if self.candidateMove[0] == self.candidateMove[1]:
                 return False
-            # TODO fix this limitation
-            if abs(abs(self.candidateMove[0]) - abs(self.candidateMove[1])) == 1:
-                return False
             if self.candidateMove[0] == 0:
                 return False
             if self.candidateMove[1] == 0:
-                return False
-            # TODO fix this limitation
-            if abs(self.candidateMove[0]) == self.num-1:
-                return False
-            if abs(self.candidateMove[1]) == self.num-1:
                 return False
             return True
 
@@ -47,6 +39,8 @@ class CannyTSP(object):
         o2 = a+1
         o3 = b-1
         o4 = b+1
+        o4exist = o4 < len(self.OrderedList)
+        o2exist = o2 < len(self.OrderedList)
         delta = 0
 
         #if a == b:
@@ -55,12 +49,12 @@ class CannyTSP(object):
             # o1 --> a[0] --> a[-1] --> b[0] --> b[-1] --> o4
             delta -= hyp(*(self.OrderedList[a][0]  + self.OrderedList[o1][-1]))
             delta -= hyp(*(self.OrderedList[a][-1] + self.OrderedList[b][0]))
-            delta -= hyp(*(self.OrderedList[b][-1] + self.OrderedList[o4][0]))
+            if o4exist: delta -= hyp(*(self.OrderedList[b][-1] + self.OrderedList[o4][0]))
             if self.candidateMove[0] < 0:
-                delta += hyp(*(self.OrderedList[a][0]  + self.OrderedList[o4][0]))
+                if o4exist: delta += hyp(*(self.OrderedList[a][0]  + self.OrderedList[o4][0]))
                 a_idx = -1
             else:
-                delta += hyp(*(self.OrderedList[a][-1]  + self.OrderedList[o4][0]))
+                if o4exist: delta += hyp(*(self.OrderedList[a][-1]  + self.OrderedList[o4][0]))
                 a_idx = 0
             if self.candidateMove[1] < 0:
                 delta += hyp(*(self.OrderedList[b][-1]  + self.OrderedList[o1][-1]))
@@ -73,7 +67,7 @@ class CannyTSP(object):
             # o3 --> b[0] --> b[-1] --> a[0] --> a[-1] --> o2
             delta -= hyp(*(self.OrderedList[b][0]  + self.OrderedList[o3][-1]))
             delta -= hyp(*(self.OrderedList[b][-1] + self.OrderedList[a][0]))
-            delta -= hyp(*(self.OrderedList[a][-1]+ self.OrderedList[o2][0]))
+            if o2exist: delta -= hyp(*(self.OrderedList[a][-1]+ self.OrderedList[o2][0]))
             if self.candidateMove[0] < 0:
                 delta += hyp(*(self.OrderedList[a][-1]  + self.OrderedList[o3][-1]))
                 a_idx = 0
@@ -81,10 +75,10 @@ class CannyTSP(object):
                 delta += hyp(*(self.OrderedList[a][0]  + self.OrderedList[o3][-1]))
                 a_idx = -1
             if self.candidateMove[1] < 0:
-                delta += hyp(*(self.OrderedList[b][0]  + self.OrderedList[o2][0]))
+                if o2exist: delta += hyp(*(self.OrderedList[b][0]  + self.OrderedList[o2][0]))
                 b_idx = -1
             else:
-                delta += hyp(*(self.OrderedList[b][-1]  + self.OrderedList[o2][0]))
+                if o2exist: delta += hyp(*(self.OrderedList[b][-1]  + self.OrderedList[o2][0]))
                 b_idx = 0
             delta += hyp(*(self.OrderedList[a][a_idx]  +  self.OrderedList[b][b_idx]))
         else:
@@ -92,39 +86,32 @@ class CannyTSP(object):
             # o3 --> b[0] --> b[-1] --> o4
 
             delta -= hyp(*(self.OrderedList[a][0] + self.OrderedList[o1][-1]))
-            delta -= hyp(*(self.OrderedList[a][-1]+ self.OrderedList[o2][0]))
+            if o2exist: delta -= hyp(*(self.OrderedList[a][-1]+ self.OrderedList[o2][0]))
             delta -= hyp(*(self.OrderedList[b][0] + self.OrderedList[o3][-1]))
-            delta -= hyp(*(self.OrderedList[b][-1]+ self.OrderedList[o4][0]))
+            if o4exist: delta -= hyp(*(self.OrderedList[b][-1]+ self.OrderedList[o4][0]))
             if self.candidateMove[0] < 0:
-                delta += hyp(*self.OrderedList[a][0]+self.OrderedList[o4][0])
+                if o4exist: delta += hyp(*self.OrderedList[a][0]+self.OrderedList[o4][0])
                 delta += hyp(*self.OrderedList[a][-1]+self.OrderedList[o3][-1])
             else:
-                delta += hyp(*self.OrderedList[a][-1]+self.OrderedList[o4][0])
+                if o4exist: delta += hyp(*self.OrderedList[a][-1]+self.OrderedList[o4][0])
                 delta += hyp(*self.OrderedList[a][0]+self.OrderedList[o3][-1])
             if self.candidateMove[1] < 0:
-                delta += hyp(*self.OrderedList[b][0]+self.OrderedList[o2][0])
+                if o2exist: delta += hyp(*self.OrderedList[b][0]+self.OrderedList[o2][0])
                 delta += hyp(*self.OrderedList[b][-1]+self.OrderedList[o1][-1])
             else:
-                delta += hyp(*self.OrderedList[b][-1]+self.OrderedList[o2][0])
+                if o2exist: delta += hyp(*self.OrderedList[b][-1]+self.OrderedList[o2][0])
                 delta += hyp(*self.OrderedList[b][0]+self.OrderedList[o1][-1])
 
 
-        #orig_cost = self.cost()
-        #self.move()
-        #delta2 = self.cost() - orig_cost
+        # orig_cost = self.cost()
+        # self.move()
+        # delta2 = self.cost() - orig_cost
         # # undo the move
-        #self.move()
-        #self.move()
-        #self.move()
-        #if delta != delta2:
-        #    print "weird: ",delta,delta2
-
-
-        #         + hyp(*(self.OrderedList[a]  +self.OrderedList[b+1]))
-        #         - hyp(*(self.OrderedList[a-1]+self.OrderedList[a]))
-        #         - hyp(*(self.OrderedList[a+1]+self.OrderedList[a]))
-        #         - hyp(*(self.OrderedList[b-1]+self.OrderedList[b]))
-        #         - hyp(*(self.OrderedList[b+1]+self.OrderedList[b])))
+        # self.move()
+        # self.move()
+        # self.move()
+        # if abs(delta - delta2) > 1e12:
+        #     print "weird: ",delta,delta2
 
         self.currentDelta = delta
 

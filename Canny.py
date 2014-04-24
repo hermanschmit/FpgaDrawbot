@@ -85,9 +85,11 @@ class Canny:
         plt.plot(points[:,0],points[:,1], 'o')
         plt.show()
 
-    def optimizeLineSequence(self):
+    def addInitialStartPt(self):
         self.x, self.y = self.grad.shape
         self.segmentList.insert(0, [[self.x // 2, self.y // 2]])
+
+    def optimizeLineSequence(self):
         print self.segmentList
         self.optInst = CannyTSP.CannyTSP(self.segmentList)
         self.opt = SA_base.SA_base(self.optInst, 500, 10000, 0.9)
@@ -267,107 +269,6 @@ class Canny:
                 y += sy
         self.grad[x, y] = -1
 
-    def segmentConnectLength(self):
-        c = 0.
-        s0 = self.segmentList[0]
-        p0 = s0[-1]
-        for s1 in self.segmentList[1:]:
-            p1 = s1[0]
-            c = c + hypot(p0[0]-p1[0],p0[1]-p1[1])
-            p0 = s1[-1]
-        return c
-
-    def segmentEndPtsGridCoord(self,segment):
-        p0 = segment[0]
-        gx0, gy0 = p0[0]//self.hash_gridsize , p0[1]//self.hash_gridsize
-        p1 = segment[-1]
-        gx1, gy1 = p1[0]//self.hash_gridsize, p1[1]//self.hash_gridsize
-        return (gx0, gy0), (gx1, gy1)
-
-    def segmentEndPtsGrid(self,segment):
-        (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(segment)
-        return self.grid[gx0][gy0], self.grid[gx1][gy1]
-
-    def segmentNeighborCounts(self,segment):
-        (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(segment)
-        return len(self.grid[gx0][gy0]) + len(self.grid[gx1][gy1]) - 2
-
-    def segmentDistance(self,pt,segment):
-        return hypot(pt[0]-segment[0][0],pt[1]-segment[0][1]), hypot(pt[0]-segment[1][0],pt[1]-segment[1][1])
-
-    def connectSegments(self,x_init,y_init):
-        """
-        This method finds connection between segmentList
-        Starts at x_init,y_init
-        prune_ratio determines likelihood of keeping depending on new segment length vs. connecting segment
-
-        """
-        self.segmentList.insert(0, [[x_init, y_init]])
-        cost = self.segmentConnectLength()
-        print cost
-
-        # pre-prune lonely segments?
-
-        # build a grid
-        self.grid = [[[] for i in xrange(self.y//self.hash_gridsize + 1)] for j in range(self.x//self.hash_gridsize + 1)]
-
-        for seg in self.segmentList[1:]:
-            (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(seg)
-            self.grid[gx0][gy0].append(seg)
-            self.grid[gx1][gy1].append(seg)
-
-        # prune segments without neighbors ?
-
-        # start at 0
-
-        seg = self.segmentList[0]
-        for idx in xrange(1,len(self.segmentList)):
-            (gx0,gy0), (gx1,gy1) = self.segmentEndPtsGridCoord(seg)
-            nextseg = None
-            bestDist = 0.
-            gridsegments = self.grid[gx0][gy0] + self.grid[gx1][gy1]
-            for neighbor_seg in gridsegments:
-                if seg == neighbor_seg:
-                    continue
-                d0,d1 = self.segmentDistance(seg[-1],neighbor_seg)
-                dmin = min(d0,d1)
-                if nextseg == None or dmin < bestDist:
-                    nextseg = neighbor_seg
-                    bestDist = dmin
-                    bestD0D1 = (d0,d1)
-            if nextseg != None:
-                if bestD0D1[0] > bestD0D1[1]:
-                    nextseg.reverse()
-                self.segmentList.remove(nextseg)
-                self.segmentList.insert(idx,nextseg)
-            seg = self.segmentList[idx]
-            idx += 1
-
-        # find nearest in grid
-        # connect
-        # search for next point
-
-        # quench
-        cost = self.segmentConnectLength()
-        for i in xrange(2000 * len(self.segmentList)):
-            pos1 = random.randrange(1, len(self.segmentList)-1, 1)
-            pos2 = random.randrange(1, len(self.segmentList)-1, 1)
-            self.segmentList[pos1],self.segmentList[pos2] = self.segmentList[pos2], self.segmentList[pos1]
-            new_cost = self.segmentConnectLength()
-            if new_cost <= cost:
-                cost = new_cost
-            else:
-                self.segmentList[pos1],self.segmentList[pos2] = self.segmentList[pos2], self.segmentList[pos1]
-
-            # Now try to reverse a list
-            pos3 = random.randrange(1, len(self.segmentList)-1, 1)
-            self.segmentList[pos3].reverse()
-            new_cost = self.segmentConnectLength()
-            if new_cost <= cost:
-                cost = new_cost
-            else:
-                self.segmentList[pos3].reverse()
-            print cost
 
     def createFilter(self,rawfilter):
         """
@@ -448,24 +349,31 @@ class Canny:
                     return [x,y]
         return -1
 
-    def pruneLonelySegments(self,ratio=100.):
+    def pruneLonelySegments(self,ratio=1000.):
         newSegmentList = []
         newSegmentList.append(self.segmentList[0])
 
         for i in xrange(len(self.segmentList)-3):
             s0, s1, s2 = self.segmentList[i], self.segmentList[i+1], self.segmentList[i+2]
-            drawn = (hyp(*(s0[-1]  + s1[0])) +
-                     hyp(*(s1[-1]  + s2[0])))
-            segment = len(s1)
-            if drawn < ratio * segment:
+            drawnA = hyp(*(s0[-1]  + s1[0]))
+            drawnB = hyp(*(s1[-1]  + s2[0]))
+            segment = hyp(*(s1[0] + s1[-1]))
+            limit = segment * ratio
+            if drawnA < limit or drawnB < ratio:
                 newSegmentList.append(s1)
-        newSegmentList.append(self.segmentList[-1])
+        # add the last?
+        last_2 = self.segmentList[-2]
+        last = self.segmentList[-1]
+        drawn = hyp(*(last_2[-1] + last[0]))
+        limit = 2 * ratio * hyp(*(last[0] + last[-1]))
+        if drawn < limit:
+            newSegmentList.append(self.segmentList[-1])
         self.segmentList = newSegmentList[:]
 
 
     def pixelscale(self,pt,maxXY):
         px = float(pt[0]-self.x//2) / maxXY
-        py = float(pt[1]-self.y//2) / maxXY
+        py = -1.0 * float(pt[1]-self.y//2) / maxXY
         return px, py
 
     def cArrayWrite(self, fname):
@@ -492,8 +400,9 @@ class Canny:
 def main(ifile_name, ofile_name1, ofile_carray="shape.h"):
     canny = Canny(ifile_name)
     # canny.delaunayExper()
+    canny.addInitialStartPt()
     canny.optimizeLineSequence()
-    canny.pruneLonelySegments()
+    # canny.pruneLonelySegments()
     canny.optimizeLineSequence()
     print canny.x,canny.y
     canny.cArrayWrite(ofile_carray)

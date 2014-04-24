@@ -86,8 +86,8 @@ class SA_base(object):
                 if self.metropolis(delta,temp):
                     self.commitMove(delta)
             cost = self.inst.cost()
-            #if cost != self.inst.currentCost:
-            #    print "weird: ",cost,self.inst.currentCost
+            if abs(cost - self.inst.currentCost) > 1e-7:
+                print "weird: ",cost,self.inst.currentCost
             if lastCost == cost:
                 if frozenCount == 0: frozenMove = moves
                 frozenCount += 1
