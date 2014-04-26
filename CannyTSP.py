@@ -1,5 +1,5 @@
 import numpy as np
-import random, copy, math
+import random, math
 
 def hyp(ax,ay,bx,by):
     xdiff = ax - bx

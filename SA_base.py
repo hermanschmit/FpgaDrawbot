@@ -79,15 +79,16 @@ class SA_base(object):
         temp = self.t0
         frozenCount = 0
         lastCost = 0
+        frozenMove = 0
         while (frozenCount == 0 or (moves-frozenMove) < self.FROZEN) and moves < self.MAXMOVES:
-            for j in xrange(0,self.movesPerTemp):
+            for j in xrange(0, self.movesPerTemp):
                 moves += 1
                 delta = self.inst.genMove()
                 if self.metropolis(delta,temp):
                     self.commitMove(delta)
             cost = self.inst.cost()
             if abs(cost - self.inst.currentCost) > 1e-7:
-                print "weird: ",cost,self.inst.currentCost
+                print "weird: ", cost, self.inst.currentCost
             if lastCost == cost:
                 if frozenCount == 0: frozenMove = moves
                 frozenCount += 1

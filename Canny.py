@@ -14,9 +14,7 @@ import CannyTSP
 from scipy import *
 from scipy.misc import *
 from scipy.signal import convolve2d as conv
-from scipy.spatial import Delaunay
-import matplotlib.pyplot as plt
-import matplotlib.tri as mtri
+from scipy.spatial import *
 import numpy
 import random
 
@@ -79,11 +77,13 @@ class Canny:
             if len(i) > 1:
                 pointslist.append(i[-1])
         points = array(pointslist)
-        tri = Delaunay(points)
+        tri = scipy.spatial.Delaunay(points)
         print points
-        plt.triplot(points[:,0], points[:,1], tri.vertices.copy())
-        plt.plot(points[:,0],points[:,1], 'o')
-        plt.show()
+
+
+        # plt.triplot(points[:,0], points[:,1], tri.vertices.copy())
+        # plt.plot(points[:,0],points[:,1], 'o')
+        # plt.show()
 
     def addInitialStartPt(self):
         self.x, self.y = self.grad.shape
@@ -138,8 +138,8 @@ class Canny:
         # Net gradient is the square root of sum of square of the horizontal
         # and vertical gradients
 
-        grad = hypot(gradx, grady)
-        theta = arctan2(grady, gradx)
+        grad = numpy.hypot(gradx, grady)
+        theta = numpy.arctan2(grady, gradx)
         theta = 180 + (180/pi)*theta
         # Only significant magnitudes are considered. All others are removed
         x,y = where(grad < 10)
@@ -291,7 +291,7 @@ class Canny:
 
         for x in range(window):
             for y in range(window):
-                r = hypot((x-c0), (y-c0))
+                r = math.hypot((x-c0), (y-c0))
                 val = (1.0/2*pi*sigma*sigma)*exp(-(r*r)/(2*sigma*sigma))
                 kernel[x, y] = val
         return kernel / kernel.sum()
@@ -349,23 +349,31 @@ class Canny:
                     return [x,y]
         return -1
 
-    def pruneLonelySegments(self,ratio=1000.):
+    def pruneLonelySegments(self,ratio=100.):
         newSegmentList = []
         newSegmentList.append(self.segmentList[0])
 
-        for i in xrange(len(self.segmentList)-3):
-            s0, s1, s2 = self.segmentList[i], self.segmentList[i+1], self.segmentList[i+2]
+        if len(self.segmentList) < 3: return
+        s0 = self.segmentList[0]
+        s1 = self.segmentList[1]
+        for i in xrange(2, len(self.segmentList)):
+            s2 = self.segmentList[i]
             drawnA = hyp(*(s0[-1]  + s1[0]))
             drawnB = hyp(*(s1[-1]  + s2[0]))
-            segment = hyp(*(s1[0] + s1[-1]))
+            segment = max(hyp(*(s1[0] + s1[-1])),len(s1))
             limit = segment * ratio
             if drawnA < limit or drawnB < ratio:
                 newSegmentList.append(s1)
+                s0 = s1
+                s1 = s2
+            else:
+                s1 = s2
+
         # add the last?
         last_2 = self.segmentList[-2]
         last = self.segmentList[-1]
         drawn = hyp(*(last_2[-1] + last[0]))
-        limit = 2 * ratio * hyp(*(last[0] + last[-1]))
+        limit = ratio * hyp(*(last[0] + last[-1]))
         if drawn < limit:
             newSegmentList.append(self.segmentList[-1])
         self.segmentList = newSegmentList[:]
@@ -402,7 +410,7 @@ def main(ifile_name, ofile_name1, ofile_carray="shape.h"):
     # canny.delaunayExper()
     canny.addInitialStartPt()
     canny.optimizeLineSequence()
-    # canny.pruneLonelySegments()
+    canny.pruneLonelySegments()
     canny.optimizeLineSequence()
     print canny.x,canny.y
     canny.cArrayWrite(ofile_carray)
