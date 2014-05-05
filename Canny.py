@@ -16,7 +16,7 @@ from scipy.misc import *
 from scipy.signal import convolve2d as conv
 from scipy.spatial import *
 import numpy
-import random
+import EuclidMST
 
 def hyp(ax,ay,bx,by):
     xdiff = ax - bx
@@ -70,20 +70,9 @@ class Canny:
         >>>Image.fromarray(im).show()
     """
 
-    def delaunayExper(self):
-        pointslist = []
-        for i in self.segmentList:
-            pointslist.append(i[0])
-            if len(i) > 1:
-                pointslist.append(i[-1])
-        points = array(pointslist)
-        tri = scipy.spatial.Delaunay(points)
-        print points
-
-
-        # plt.triplot(points[:,0], points[:,1], tri.vertices.copy())
-        # plt.plot(points[:,0],points[:,1], 'o')
-        # plt.show()
+    def euclidMstExper(self):
+        emst = EuclidMST.EuclidMST(self.segmentList)
+        self.segmentList = emst.newSegmentTree
 
     def addInitialStartPt(self):
         self.x, self.y = self.grad.shape
@@ -166,19 +155,11 @@ class Canny:
         x,y = self.theta.shape
         self.grad = grad.copy()
 
-        # zero out boundaries
-        # x,y = self.grad.shape
+        # delete added elements to grad
         self.grad = numpy.delete(self.grad,numpy.s_[0:1],0)
         self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],0)
         self.grad = numpy.delete(self.grad,numpy.s_[0:1],1)
         self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],1)
-        #self.grad = numpy.insert(self.grad,(0,1), 0, axis=0)
-        #self.grad = numpy.insert(self.grad,(0,1), 0, axis=1)
-
-        # self.grad[0:1, :] = 0
-        # self.grad[-3:-1, :] = 0
-        # self.grad[:, 0:1] = 0
-        # self.grad[:, -3:-1] = 0
 
         x, y = self.grad.shape
 
@@ -243,7 +224,9 @@ class Canny:
         self.grad[x, y] = 255
 
     def bresenhamFillIn(self,p0,p1):
-        "Bresenham's line algorithm"
+        """
+        Bresenham's line algorithm
+        """
         dx = abs(p1[0] - p0[0])
         dy = abs(p1[1] - p0[1])
         x, y = p0[0],p0[1]
@@ -362,7 +345,7 @@ class Canny:
             drawnB = hyp(*(s1[-1]  + s2[0]))
             segment = max(hyp(*(s1[0] + s1[-1])),len(s1))
             limit = segment * ratio
-            if drawnA < limit or drawnB < ratio:
+            if drawnA < limit or drawnB < limit:
                 newSegmentList.append(s1)
                 s0 = s1
                 s1 = s2
@@ -407,12 +390,8 @@ class Canny:
 
 def main(ifile_name, ofile_name1, ofile_carray="shape.h"):
     canny = Canny(ifile_name)
-    # canny.delaunayExper()
     canny.addInitialStartPt()
-    canny.optimizeLineSequence()
-    canny.pruneLonelySegments()
-    canny.optimizeLineSequence()
-    print canny.x,canny.y
+    canny.euclidMstExper()
     canny.cArrayWrite(ofile_carray)
     canny.segment2grad()
     canny.renderGrad()
