@@ -15,7 +15,7 @@ class TestEuclidMSTZ(EuclidMST_instZ):
         self.assertEqual(self.euclidmst.size,4)
         d = self.euclidmst.spnTree.sum()
         d /= 2 # spnTree is undirected, so sum is 2x expected
-        self.assertAlmostEqual(d*d,2)
+        self.assertAlmostEqual(d,2)
 
 class EuclidMST_instY(TestCase):
     def setUp(self):
@@ -28,4 +28,4 @@ class TestEuclidMSTY(EuclidMST_instY):
         self.assertEqual(self.euclidmst.size,6)
         d = self.euclidmst.spnTree.sum()
         d /= 2 # spnTree is undirected, so sum is 2x expected
-        self.assertAlmostEqual(d*d,8)
+        self.assertAlmostEqual(d,4)

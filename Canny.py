@@ -26,7 +26,11 @@ def hyp(ax,ay,bx,by):
 def colinear(p0, p1, p2):
     x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
     x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
-    return x1 * y2 == x2 * y1
+    return abs(x1 * y2 - x2 * y1) < 1e-5
+
+def neighbor(p0,p1):
+    x, y = abs(p1[0]-p0[0]), abs(p1[1]-p1[0])
+    return x <= 1 and y <= 1
 
 def simplifySegments(s):
     if len(s) < 3:
@@ -72,7 +76,15 @@ class Canny:
 
     def euclidMstExper(self):
         emst = EuclidMST.EuclidMST(self.segmentList)
+        print "euclidMST Done"
+        emst.lonelySegmentRemoval(True)
+        print "Done Lonely Seg Removal"
         self.segmentList = emst.newSegmentTree
+
+        emst2 = EuclidMST.EuclidMST(self.segmentList)
+        emst2.segmentOrdering()
+        print "Segment Ordering Done"
+        self.segmentList = emst2.newSegmentTree
 
     def addInitialStartPt(self):
         self.x, self.y = self.grad.shape
@@ -86,7 +98,7 @@ class Canny:
         self.segmentList = self.optInst.OrderedList
         print self.segmentList
 
-    def segment2grad(self):
+    def segment2grad(self,interior=False):
         self.grad[:, :] = 0
         for s in self.segmentList:
             for p in s:
@@ -95,6 +107,12 @@ class Canny:
         for s1 in self.segmentList[1:]:
             self.bresenhamFillIn(s0[-1], s1[0])
             s0 = s1
+        if interior:
+            for s0 in self.segmentList:
+                p0 = s0[0]
+                for p1 in s0[1:]:
+                    self.bresenhamFillIn(p0,p1)
+                    p0 = p1
 
     def __init__(self, image_name, sigma = 1.4, thresHigh = 50, thresLow = 5, drawBetween=False):
         """
@@ -367,40 +385,95 @@ class Canny:
         py = -1.0 * float(pt[1]-self.y//2) / maxXY
         return px, py
 
-    def cArrayWrite(self, fname):
+    def cArrayWrite(self, fname, depth = 131072):
         f = open(fname,'w')
         numpts = 0
         segmentList_simp = []
         for s in self.segmentList:
             ns = simplifySegments(s)
-            segmentList_simp.append(simplifySegments(s))
+            segmentList_simp.append(ns)
             numpts += len(ns)
-        f.write("float diag["+repr(numpts+1)+"][2] = {\n")
+        if numpts-1 >= depth:
+            print "Number of points exceeds limit: "+repr(numpts)
+            raise ValueError
+        f.write("float diag["+repr(depth)+"][2] = {\n")
         m = max(self.x//2,self.y//2)
+        i = 0
         for s in segmentList_simp:
             for p in s:
                 x, y = self.pixelscale(p,m)
                 f.write("       {"+repr(y)+", "+repr(x)+"},\n")
+                i += 1
+        for j in xrange(i,depth-1):
+            f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
         f.close()
 
+    def binWrite(self, fname, depth = 131072):
+        numpts = 0
+        segmentList_simp = []
+        for s in self.segmentList:
+            ns = simplifySegments(s)
+            segmentList_simp.append(ns)
+            numpts += len(ns)
+        if numpts-1 >= depth:
+            print "Number of points exceeds limit: "+repr(numpts)
+            raise ValueError
+        m = max(self.x//2,self.y//2)
+        i = 0
+        from array import array
+        output_file = open(fname, 'wb')
+        l = [float('NaN')] * (2 * depth)
+
+        for s in segmentList_simp:
+            for p in s:
+                x, y = self.pixelscale(p,m)
+                l[i] = y
+                l[i+1] = x
+                i += 2
+
+
+        float_array = array('f', l)
+        float_array.tofile(output_file)
+        output_file.close()
+
+    def concatSegments(self):
+        sL = []
+        s_prev = self.segmentList[0]
+        for s_new in self.segmentList[1:]:
+            s_prev = numpy.append(s_prev,s_new,axis=0)
+            # if neighbor(s_prev[-1],s_new[0]):
+            #     s_prev = numpy.append(s_prev,s_new,axis=0)
+            # else:
+            #     sL.append(s_prev)
+            #     s_prev = s_new
+        sL.append(s_prev)
+        self.segmentList = sL
+
 
 # End of module Canny
 
-def main(ifile_name, ofile_name1, ofile_carray="shape.h"):
+def main(ifile_name, ofile_name1, ofile_carray="shape.h", bin_fn="bfile.bin"):
     canny = Canny(ifile_name)
+    print "Canny Done"
     canny.addInitialStartPt()
     canny.euclidMstExper()
+    print len(canny.segmentList)
+    canny.concatSegments()
+    print len(canny.segmentList)
     canny.cArrayWrite(ofile_carray)
-    canny.segment2grad()
+    canny.segment2grad(interior=True)
+    canny.binWrite(bin_fn)
     canny.renderGrad()
     im = canny.grad
     imsave(ofile_name1,im)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
+        main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
+    elif len(sys.argv) == 4:
         main(sys.argv[1],sys.argv[2],sys.argv[3])
     else:
         main(sys.argv[1],sys.argv[2])

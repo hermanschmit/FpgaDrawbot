@@ -9,21 +9,21 @@ import math
 
 
 def hyp(ax,ay,bx,by):
-    return math.hypot(float(ax - bx), float(ay - by))
+    # This is sloppy, but faster
+    return float(ax-bx)**2 + float(ay - by)**2
+    #return math.hypot(float(ax - bx), float(ay - by))
 
 class EuclidMST:
 
     def minDist(self,i):
-        x0 = self.distMatrix[i[0],:]
-        x1 = self.distMatrix[i[1],:]
-        m = 1e10
-        d0 = x0.nonzero()
-        d1 = x1.nonzero()
-        for k in d0[1]:
-            m = min(m,x0[0,k])
-        for k in d1[1]:
-            m = min(m,x1[0,k])
-        return m
+        x0 = self.distMatrix.getrow(i)
+        return x0.data.min()
+        # x0 = self.distMatrix[i,:]
+        # m = 1e10
+        # d0 = x0.nonzero()
+        # for k in d0[1]:
+        #     m = min(m,x0[0,k])
+        # return m
 
     def treetrav(self,tree):
         self.nodeTrav.append(tree[0])
@@ -45,27 +45,27 @@ class EuclidMST:
         ls = sorted(l, key=lambda dist: dist[1])
         return (node, sum, ls)
 
-
     def __init__(self,segmentList):
-
+        self.segmentList = segmentList
         pl = []
-        idxl = []
-        lidx = []
+        self.idxl = []
+        self.lidx = []
         i = 0
         j = 0
         for s in segmentList:
             pl.append(s[0])
-            lidx.append((j, True))
+            self.lidx.append((j, True))
             i += 1
             if len(s) > 1:
                 pl.append(s[-1])
-                idxl.append([i-1, i])
-                lidx.append((j, False))
+                self.idxl.append([i-1, i])
+                self.lidx.append((j, False))
                 i += 1
             j += 1
 
         points = numpy.array(pl,float)
         self.tri = scipy.spatial.Delaunay(points)
+        print "Delaunay Done"
         self.size = len(self.tri.points)
         self.distMatrix = csr_matrix((self.size, self.size),
                                      dtype=float )
@@ -88,67 +88,83 @@ class EuclidMST:
         # add the segment list with small delta
         # make sure no points from triangulation connecting real points
         # they will be restored
-        for i in idxl:
+        for i in self.idxl:
             self.distMatrix[i[0], i[1]] = 1e-10
             self.distMatrix[i[1], i[0]] = 1e-10
 
-        # TODO use triangulation to remove lonely segments
-        # This attempts to remove points based on distance in the triangulation.
-        # Incomplete because it doesn't remove the points, and that seems scary.
-        # for i in idxl:
-        #     self.distMatrix[i[0], i[1]] = 0
-        #     self.distMatrix[i[1], i[0]] = 0
-        #
-        # survivors = [False] * len(segmentList)
-        # survivors[0] = True
-        #
-        # for i in idxl:
-        #     m1 = self.minDist(i)
-        #     s1 = segmentList[lidx[i[0]][0]]
-        #     limit = 100 * max(hyp(*(s1[0] + s1[-1])),len(s1))
-        #     if m1 < limit:
-        #         self.distMatrix[i[0], i[1]] = 1e-10
-        #         self.distMatrix[i[1], i[0]] = 1e-10
-        #     else:
-        #         pass
-        #         # TODO remove points!
 
+
+        print "start MST"
 
         self.spnTree = minimum_spanning_tree(self.distMatrix)
+        print "done MST"
         (aidx, bidx) = self.spnTree.nonzero()
         # make undirected
         for (a,b) in zip(aidx,bidx):
-            self.spnTree[bidx, aidx] = self.spnTree[aidx, bidx]
+            self.spnTree[b, a] = self.spnTree[a, b]
 
+
+    def lonelySegmentRemoval(self, firstPreserved = True):
+        # This attempts to remove points based on distance in the triangulation.
+        # Incomplete because it doesn't remove the points, and that seems scary.
+
+        survivors = [False] * len(self.segmentList)
+        survivors[0] = firstPreserved
+
+        for i in self.idxl:
+             self.distMatrix[i[0], i[1]] = 0
+             self.distMatrix[i[1], i[0]] = 0
+
+        if firstPreserved:
+            lidx2 = self.lidx[1:]
+            idx = 1
+        else:
+            lidx2 = self.lidx
+            idx = 0
+
+        for i in lidx2:
+            m1 = self.minDist(idx)
+            s1 = self.segmentList[i[0]]
+            limit = 40 * max(hyp(*(s1[0] + s1[-1])),len(s1))
+            if m1 < limit:
+                 survivors[i[0]] = True
+            idx += 1
+        self.newSegmentTree = []
+        for (seg,surv) in zip(self.segmentList,survivors):
+            if surv:
+                self.newSegmentTree.append(seg)
+
+
+
+    def segmentOrdering(self):
         traversal = self.dfo(0,None)
+        print "Done dfo"
         self.nodeTrav = []
         self.treetrav(traversal)
+        print "treetrav done"
+
+        covered = [False] * len(self.segmentList)
+        covered[0] = True
+        uncovered_count = len(self.segmentList)-1
 
         self.newSegmentTree = []
 
-        # TODO This does not have to be complete traversal. Reduce to cover all vertices
         for z in xrange(0,len(self.nodeTrav)-1):
-            s0 = lidx[self.nodeTrav[z]]
-            s1 = lidx[self.nodeTrav[z+1]]
+            s0 = self.lidx[self.nodeTrav[z]]
+            s1 = self.lidx[self.nodeTrav[z+1]]
             if s0[0] == s1[0]:
                 if s0[1]:
-                    self.newSegmentTree.append(segmentList[s0[0]])
+                    self.newSegmentTree.append(self.segmentList[s0[0]])
                 else:
-                    self.newSegmentTree.append(numpy.flipud(segmentList[s0[0]]))
+                    self.newSegmentTree.append(numpy.flipud(self.segmentList[s0[0]]))
+                if not covered[s0[0]]:
+                    uncovered_count -= 1
+                    covered[s0[0]] = True
+            if uncovered_count <= 0:
+                break
 
 
-        # import matplotlib.pyplot as plt
-        #
-        # for (a,b) in zip(aidx,bidx):
-        #     linex = [points[a,0],points[b,0]]
-        #     liney = [points[a,1],points[b,1]]
-        #     plt.plot(liney, linex, 'o-')
-        # ax = plt.gca()
-        # ax.invert_yaxis()
-        # plt.show()
-        #
-        # print self.spnTree.nonzero()
-        # print lidx
+
 
 
 
