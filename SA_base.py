@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     base.resetStats()
     for i in xrange(0,100):
-        base.cost = 7.0;
+        base.cost = 7.0
         base.updateStats()
     for i in xrange(5,10):
         base.cost = i*1.0

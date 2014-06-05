@@ -76,14 +76,11 @@ class Canny:
 
     def euclidMstExper(self):
         emst = EuclidMST.EuclidMST(self.segmentList)
-        print "euclidMST Done"
         emst.lonelySegmentRemoval(True)
-        print "Done Lonely Seg Removal"
         self.segmentList = emst.newSegmentTree
 
         emst2 = EuclidMST.EuclidMST(self.segmentList)
         emst2.segmentOrdering()
-        print "Segment Ordering Done"
         self.segmentList = emst2.newSegmentTree
 
     def addInitialStartPt(self):
@@ -114,7 +111,7 @@ class Canny:
                     self.bresenhamFillIn(p0,p1)
                     p0 = p1
 
-    def __init__(self, image_name, sigma = 1.4, thresHigh = 50, thresLow = 5, drawBetween=False):
+    def __init__(self, image_name, sigma = 1.4, thresHigh = 50, thresLow = 5):
         """
 
         :param imname:
@@ -170,7 +167,6 @@ class Canny:
         self.theta[x45, y45] = 45
         self.theta[x90, y90] = 90
         self.theta[x135, y135] = 135
-        x,y = self.theta.shape
         self.grad = grad.copy()
 
         # delete added elements to grad
@@ -346,7 +342,7 @@ class Canny:
                     continue
                 if ([x,y] == p1) or ([x,y] == p2):
                     continue
-                if (im[x,y] > thres): #and (im[i,j] < 256):
+                if im[x,y] > thres: #and (im[i,j] < 256):
                     return [x,y]
         return -1
 
