@@ -8,9 +8,6 @@ contact: vishwa.hyd@gmail.com
 '''
 import sys
 
-import SA_base
-import CannyTSP
-
 from scipy import *
 from scipy.misc import *
 from scipy.signal import convolve2d as conv
@@ -87,14 +84,6 @@ class Canny:
         self.x, self.y = self.grad.shape
         self.segmentList.insert(0, [[self.x // 2, self.y // 2]])
 
-    def optimizeLineSequence(self):
-        print self.segmentList
-        self.optInst = CannyTSP.CannyTSP(self.segmentList)
-        self.opt = SA_base.SA_base(self.optInst, 500, 10000, 0.9)
-        self.opt.optimize()
-        self.segmentList = self.optInst.OrderedList
-        print self.segmentList
-
     def segment2grad(self,interior=False):
         self.grad[:, :] = 0
         for s in self.segmentList:
@@ -111,7 +100,7 @@ class Canny:
                     self.bresenhamFillIn(p0,p1)
                     p0 = p1
 
-    def __init__(self, image_name, sigma = 1.4, thresHigh = 50, thresLow = 5):
+    def __init__(self, image_matrix, sigma = 1.4, thresHigh = 50, thresLow = 5):
         """
 
         :param imname:
@@ -119,7 +108,8 @@ class Canny:
         :param thresHigh:
         :param thresLow:
         """
-        self.imin = imread(image_name, flatten = True)
+        self.imin = image_matrix
+
 
         # Create the gauss kernel for blurring the input image
         # It will be convolved with the image
@@ -152,14 +142,14 @@ class Canny:
 
         # The angles are quantized. This is the first step in non-maximum
         # supression. Since, any pixel will have only 4 approach directions.
-        x0, y0 = where(((theta<22.5)+(theta>157.5)*(theta<202.5)
-                       +(theta>337.5)) == True)
-        x45, y45 = where( ((theta>22.5)*(theta<67.5)
-                          +(theta>202.5)*(theta<247.5)) == True)
-        x90, y90 = where( ((theta>67.5)*(theta<112.5)
-                          +(theta>247.5)*(theta<292.5)) == True)
-        x135, y135 = where( ((theta>112.5)*(theta<157.5)
-                            +(theta>292.5)*(theta<337.5)) == True)
+        x0, y0 = where(((theta<22.5)+(theta>=157.5)*(theta<202.5)
+                       +(theta>=337.5)) == True)
+        x45, y45 = where( ((theta>=22.5)*(theta<67.5)
+                          +(theta>=202.5)*(theta<247.5)) == True)
+        x90, y90 = where( ((theta>=67.5)*(theta<112.5)
+                          +(theta>=247.5)*(theta<292.5)) == True)
+        x135, y135 = where( ((theta>=112.5)*(theta<157.5)
+                            +(theta>=292.5)*(theta<337.5)) == True)
 
         self.theta = theta
         # Image.fromarray(self.theta).convert('L').save('Angle map.jpg')
@@ -174,31 +164,42 @@ class Canny:
         self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],0)
         self.grad = numpy.delete(self.grad,numpy.s_[0:1],1)
         self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],1)
+        self.theta = numpy.delete(self.theta,numpy.s_[0:1],0)
+        self.theta = numpy.delete(self.theta,numpy.s_[-2:-1],0)
+        self.theta = numpy.delete(self.theta,numpy.s_[0:1],1)
+        self.theta = numpy.delete(self.theta,numpy.s_[-2:-1],1)
+
+        #print self.grad
+        #print self.theta
 
         x, y = self.grad.shape
+        grad2 = self.grad.copy()
 
         for i in range(x):
             for j in range(y):
+
                 if self.theta[i, j] == 0:
-                    test = self.nms_check(grad, i, j, 1, 0, -1, 0)
+                    test = self.nms_check(grad2, i, j, 1, 0, -1, 0)
                     if not test:
                         self.grad[i, j] = 0
 
                 elif self.theta[i, j] == 45:
-                    test = self.nms_check(grad, i, j, 1, -1, -1, 1)
+                    test = self.nms_check(grad2, i, j, 1, -1, -1, 1)
                     if not test:
                         self.grad[i, j] = 0
 
                 elif self.theta[i, j] == 90:
-                    test = self.nms_check(grad, i, j, 0, 1, 0, -1)
+                    test = self.nms_check(grad2, i, j, 0, 1, 0, -1)
                     if not test:
                         self.grad[i, j] = 0
                 elif self.theta[i, j] == 135:
-                    test = self.nms_check(grad, i, j, 1, 1, -1, -1)
+                    test = self.nms_check(grad2, i, j, 1, 1, -1, -1)
                     if not test:
                         self.grad[i, j] = 0
 
-        init_point = self.stop(self.grad, thresHigh)
+        #print self.grad
+
+        init_point = self.initPt(self.grad, thresHigh)
         # Hysteresis tracking. Since we know that significant edges are
         # continuous contours, we will exploit the same.
         # thresHigh is used to track the starting point of edges and
@@ -226,7 +227,8 @@ class Canny:
             if len(segment) >= 2:
                 self.segmentList.append(segment)
 
-            init_point = self.stop(self.grad, thresHigh)
+            #init_point = self.stop(self.grad, thresHigh)
+            init_point = self.nextPt(self.grad)
             segment = [init_point]
 
     def renderGrad(self):
@@ -303,12 +305,29 @@ class Canny:
             at that point is greater than its top and bottom neighbours.
         """
         try:
+            if (i+x1 < 0) or (i+x2 < 0) or (j+x1 < 0) or (j+x2 < 0): return True
             if (grad[i,j] > grad[i+x1,j+y1]) and (grad[i,j] > grad[i+x2,j+y2]):
-                return 1
+                return True
             else:
-                return 0
+                return False
         except IndexError:
-            return -1
+            return True
+
+    def initPt(self,im,thres):
+        X,Y = where(im > thres)
+        XY = zip(X,Y)
+        self.threshPts = sorted(XY,key=lambda x: x[1])
+        if len(self.threshPts) == 0: return -1
+        iP = self.threshPts.pop(0)
+        return [iP[0],iP[1]]
+
+    def nextPt(self,im):
+        if len(self.threshPts) == 0: return -1
+        iP = self.threshPts.pop(0)
+        while im[iP[0],iP[1]] == -1:
+            if len(self.threshPts) == 0: return -1
+            iP = self.threshPts.pop(0)
+        return [iP[0],iP[1]]
 
     def stop(self,im,thres):
         """
@@ -316,34 +335,37 @@ class Canny:
         """
         X,Y = where(im > thres)
         try:
-            y = Y.min()
+            idx = Y.argmin()
         except:
             return -1
-        X = X.tolist()
-        Y = Y.tolist()
-        index = Y.index(y)
-        x = X[index]
+        x = X[idx]
+        y = Y[idx]
+#        X = X.tolist()
+#        Y = Y.tolist()
+#        index = Y.index(y)
+#        x = X[index]
         return [x,y]
 
     def nextNbd(self,im,p0,p1,p2,thres):
         """
             This method is used to return the next point on the edge.
         """
-        kit = [-1,0,1]
         X,Y = im.shape
-        for i in kit:
-            for j in kit:
-                if (i+j) == 0:
-                    continue
-                x = p0[0]+i
-                y = p0[1]+j
+#        kit = [-1,0,1]
+#        for i in kit:
+#           for j in kit:
+        for (i,j) in [(-1,0),(0,-1),(1,0),(0,1),(1,1),(1,-1),(-1,1),(-1,-1)]:
+#            if (i+j) == 0:
+#                continue
+            x = p0[0]+i
+            y = p0[1]+j
 
-                if (x<0) or (y<0) or (x>=X) or (y>=Y):
-                    continue
-                if ([x,y] == p1) or ([x,y] == p2):
-                    continue
-                if im[x,y] > thres: #and (im[i,j] < 256):
-                    return [x,y]
+            if (x<0) or (y<0) or (x>=X) or (y>=Y):
+                continue
+            if ([x,y] == p1) or ([x,y] == p2):
+                continue
+            if im[x,y] > thres: #and (im[i,j] < 256):
+                return [x,y]
         return -1
 
     def pruneLonelySegments(self,ratio=100.):
@@ -450,26 +472,3 @@ class Canny:
 
 # End of module Canny
 
-def main(ifile_name, ofile_name1, ofile_carray="shape.h", bin_fn="bfile.bin"):
-    canny = Canny(ifile_name)
-    print "Canny Done"
-    canny.addInitialStartPt()
-    canny.euclidMstExper()
-    print len(canny.segmentList)
-    canny.concatSegments()
-    print len(canny.segmentList)
-    canny.cArrayWrite(ofile_carray)
-    canny.segment2grad(interior=True)
-    canny.binWrite(bin_fn)
-    canny.renderGrad()
-    im = canny.grad
-    imsave(ofile_name1,im)
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 5:
-        main(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4])
-    elif len(sys.argv) == 4:
-        main(sys.argv[1],sys.argv[2],sys.argv[3])
-    else:
-        main(sys.argv[1],sys.argv[2])

@@ -34,16 +34,16 @@ class EuclidMST:
     def dfo(self,node,parent):
         children = self.spnTree[node, :]
         child_idx = children.nonzero()
-        sumt = 0
+        sumtotal = 0
         l = []
         for c in child_idx[1]:
             if c == node or c == parent:
                 continue
             (c_ret, total, child_l) = self.dfo(c,node)
             l.append((c_ret, total, child_l))
-            sumt += total + children[0, c]
+            sumtotal += total + children[0, c]
         ls = sorted(l, key=lambda dist: dist[1])
-        return (node, sum, ls)
+        return (node, sumtotal, ls)
 
     def __init__(self,segmentList):
         self.segmentList = segmentList
