@@ -17,33 +17,36 @@ class EuclidMST:
 
     def minDist(self,i):
         x0 = self.distMatrix.getrow(i)
+        x0.eliminate_zeros()
         return x0.data.min()
-        # x0 = self.distMatrix[i,:]
-        # m = 1e10
-        # d0 = x0.nonzero()
-        # for k in d0[1]:
-        #     m = min(m,x0[0,k])
-        # return m
 
-    def treetrav(self,tree):
-        self.nodeTrav.append(tree[0])
-        for st in tree[2]:
-            self.treetrav(st)
-            self.nodeTrav.append(tree[0])
+    def treetrav_nonrec(self,tree):
+        stack = []
+        stack.append(0)
+        self.nodeTrav = []
+        while len(stack) > 0:
+            self.nodeTrav.append(stack[-1])
+            if len(tree[stack[-1]]) > 0:
+                (curr, d) = tree[stack[-1]].pop()
+                stack.append(curr)
+            else:
+                stack.pop()
 
-    def dfo(self,node,parent):
-        children = self.spnTree[node, :]
-        child_idx = children.nonzero()
-        sumtotal = 0
-        l = []
-        for c in child_idx[1]:
-            if c == node or c == parent:
-                continue
-            (c_ret, total, child_l) = self.dfo(c,node)
-            l.append((c_ret, total, child_l))
-            sumtotal += total + children[0, c]
-        ls = sorted(l, key=lambda dist: dist[1])
-        return (node, sumtotal, ls)
+    def dfo_nonrec(self, node):
+        (narray, pred) = scipy.sparse.csgraph.depth_first_order(self.spnTree,node, False, True)
+        childCount = numpy.zeros(narray.shape)
+        tree = []
+        for i in narray[::-1]:
+            tree.append([])
+            if i == node: continue
+            childCount[pred[i]] += (self.distMatrix[pred[i],i] + childCount[i])
+        for i in xrange(0,len(narray)):
+            if pred[i] == -9999: continue
+            tree[pred[i]].append((i, childCount[i]))
+        for l in tree:
+            l.sort(key=lambda x: x[1], reverse=True)
+        return tree
+
 
     def __init__(self,segmentList):
         self.segmentList = segmentList
@@ -104,7 +107,7 @@ class EuclidMST:
             self.spnTree[b, a] = self.spnTree[a, b]
 
 
-    def lonelySegmentRemoval(self, firstPreserved = True):
+    def lonelySegmentRemoval(self, firstPreserved = True, factor = 40.):
         # This attempts to remove points based on distance in the triangulation.
         # Incomplete because it doesn't remove the points, and that seems scary.
 
@@ -119,13 +122,13 @@ class EuclidMST:
             lidx2 = self.lidx[1:]
             idx = 1
         else:
-            lidx2 = self.lidx
+            lidx2 = self.lidx[:]
             idx = 0
 
         for i in lidx2:
             m1 = self.minDist(idx)
             s1 = self.segmentList[i[0]]
-            limit = 40 * max(hyp(*(s1[0] + s1[-1])),len(s1))
+            limit = factor * max(hyp(*(s1[0] + s1[-1])),len(s1))
             if m1 < limit:
                  survivors[i[0]] = True
             idx += 1
@@ -137,10 +140,12 @@ class EuclidMST:
 
 
     def segmentOrdering(self):
-        traversal = self.dfo(0,None)
+        #traversal = self.dfo(0,None)
+        tree = self.dfo_nonrec(0)
         print "Done dfo"
         self.nodeTrav = []
-        self.treetrav(traversal)
+        #self.treetrav(traversal)
+        self.treetrav_nonrec(tree)
         print "treetrav done"
 
         covered = [False] * len(self.segmentList)

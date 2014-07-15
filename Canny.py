@@ -1,35 +1,38 @@
-'''
+"""
 Module for Canny edge detection
 Requirements: 1.scipy.(numpy is also mandatory, but it is assumed to be
                       installed with scipy)
               2. Python Image Library(only for viewing the final image.)
 Author: Vishwanath
 contact: vishwa.hyd@gmail.com
-'''
-import sys
+"""
 
 from scipy import *
 from scipy.misc import *
 from scipy.signal import convolve2d as conv
-from scipy.spatial import *
+#from scipy.spatial import *
 import numpy
 import EuclidMST
 
-def hyp(ax,ay,bx,by):
+
+def hyp(ax, ay, bx, by):
     xdiff = ax - bx
     ydiff = ay - by
     return math.hypot(xdiff,ydiff)
+
 
 def colinear(p0, p1, p2):
     x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
     x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
     return abs(x1 * y2 - x2 * y1) < 1e-5
 
+
 def neighbor(p0,p1):
     x, y = abs(p1[0]-p0[0]), abs(p1[1]-p1[0])
     return x <= 1 and y <= 1
 
-def simplifySegments(s):
+
+def simplifysegments(s):
     if len(s) < 3:
         return s
     new_s = []
@@ -37,7 +40,7 @@ def simplifySegments(s):
     p1 = s[1]
     new_s.append(p0)
     for p2 in s[2:]:
-        if colinear(p0,p1,p2):
+        if colinear(p0, p1, p2):
             p1 = p2
         else:
             new_s.append(p1)
@@ -45,6 +48,7 @@ def simplifySegments(s):
             p1 = p2
     new_s.append(p2)
     return new_s
+
 
 class Canny:
     """
@@ -71,11 +75,12 @@ class Canny:
         >>>Image.fromarray(im).show()
     """
 
-    def euclidMstExper(self):
+    def euclidMstPrune(self,firstPreserved=True,factor=40):
         emst = EuclidMST.EuclidMST(self.segmentList)
-        emst.lonelySegmentRemoval(True)
+        emst.lonelySegmentRemoval(firstPreserved,factor)
         self.segmentList = emst.newSegmentTree
 
+    def euclidMstOrder(self):
         emst2 = EuclidMST.EuclidMST(self.segmentList)
         emst2.segmentOrdering()
         self.segmentList = emst2.newSegmentTree
@@ -100,7 +105,7 @@ class Canny:
                     self.bresenhamFillIn(p0,p1)
                     p0 = p1
 
-    def __init__(self, image_matrix, sigma = 1.4, thresHigh = 50, thresLow = 5):
+    def __init__(self, image_matrix, sigma = 1.8, thresHigh = 40, thresLow = 6, thresHighLimit=2**18):
         """
 
         :param imname:
@@ -109,7 +114,8 @@ class Canny:
         :param thresLow:
         """
         self.imin = image_matrix
-
+        self.thresHigh = thresHigh
+        self.thresLow = thresLow
 
         # Create the gauss kernel for blurring the input image
         # It will be convolved with the image
@@ -136,7 +142,7 @@ class Canny:
         theta = numpy.arctan2(grady, gradx)
         theta = 180 + (180/pi)*theta
         # Only significant magnitudes are considered. All others are removed
-        x,y = where(grad < 10)
+        x, y = where(grad < 10)
         theta[x, y] = 0
         grad[x, y] = 0
 
@@ -199,7 +205,7 @@ class Canny:
 
         #print self.grad
 
-        init_point = self.initPt(self.grad, thresHigh)
+        init_point = self.initPt(thresHighLimit)
         # Hysteresis tracking. Since we know that significant edges are
         # continuous contours, we will exploit the same.
         # thresHigh is used to track the starting point of edges and
@@ -215,19 +221,18 @@ class Canny:
             p2 = init_point
             p1 = init_point
             p0 = init_point
-            p0 = self.nextNbd(self.grad, p0, p1, p2, thresLow)
+            p0 = self.nextNbd(p0, p1, p2)
 
             while p0 != -1:
                 segment.append(p0)
                 p2 = p1
                 p1 = p0
                 self.grad[p0[0], p0[1]] = -1
-                p0 = self.nextNbd(self.grad, p0, p1, p2, thresLow)
+                p0 = self.nextNbd(p0, p1, p2)
 
             if len(segment) >= 2:
                 self.segmentList.append(segment)
 
-            #init_point = self.stop(self.grad, thresHigh)
             init_point = self.nextPt(self.grad)
             segment = [init_point]
 
@@ -313,10 +318,18 @@ class Canny:
         except IndexError:
             return True
 
-    def initPt(self,im,thres):
-        X,Y = where(im > thres)
-        XY = zip(X,Y)
-        self.threshPts = sorted(XY,key=lambda x: x[1])
+    def initPt(self, limit=200000):
+        done = False
+        while not done:
+            X,Y = where(self.grad > self.thresHigh)
+            if len(X) > limit:
+                self.thresHigh *= 1.25
+                self.thresLow *= 1.25
+                print "Degrade threshold", self.thresHigh, len(X)
+            else:
+                done = True
+                XY = zip(X,Y)
+        self.threshPts = sorted(XY, key=lambda x: x[1])
         if len(self.threshPts) == 0: return -1
         iP = self.threshPts.pop(0)
         return [iP[0],iP[1]]
@@ -340,23 +353,14 @@ class Canny:
             return -1
         x = X[idx]
         y = Y[idx]
-#        X = X.tolist()
-#        Y = Y.tolist()
-#        index = Y.index(y)
-#        x = X[index]
         return [x,y]
 
-    def nextNbd(self,im,p0,p1,p2,thres):
+    def nextNbd(self, p0, p1, p2):
         """
             This method is used to return the next point on the edge.
         """
-        X,Y = im.shape
-#        kit = [-1,0,1]
-#        for i in kit:
-#           for j in kit:
+        X,Y = self.grad.shape
         for (i,j) in [(-1,0),(0,-1),(1,0),(0,1),(1,1),(1,-1),(-1,1),(-1,-1)]:
-#            if (i+j) == 0:
-#                continue
             x = p0[0]+i
             y = p0[1]+j
 
@@ -364,12 +368,12 @@ class Canny:
                 continue
             if ([x,y] == p1) or ([x,y] == p2):
                 continue
-            if im[x,y] > thres: #and (im[i,j] < 256):
+            if self.grad[x,y] > self.thresLow:
                 return [x,y]
         return -1
 
     def pruneLonelySegments(self,ratio=100.):
-        newSegmentList = []
+        newSegmentList = list()
         newSegmentList.append(self.segmentList[0])
 
         if len(self.segmentList) < 3: return
@@ -377,8 +381,8 @@ class Canny:
         s1 = self.segmentList[1]
         for i in xrange(2, len(self.segmentList)):
             s2 = self.segmentList[i]
-            drawnA = hyp(*(s0[-1]  + s1[0]))
-            drawnB = hyp(*(s1[-1]  + s2[0]))
+            drawnA = hyp(*(s0[-1] + s1[0]))
+            drawnB = hyp(*(s1[-1] + s2[0]))
             segment = max(hyp(*(s1[0] + s1[-1])),len(s1))
             limit = segment * ratio
             if drawnA < limit or drawnB < limit:
@@ -403,36 +407,36 @@ class Canny:
         py = -1.0 * float(pt[1]-self.y//2) / maxXY
         return px, py
 
-    def cArrayWrite(self, fname, depth = 131072):
+    def cArrayWrite(self, fname, depth = 2**20):
         f = open(fname,'w')
         numpts = 0
         segmentList_simp = []
         for s in self.segmentList:
-            ns = simplifySegments(s)
+            ns = simplifysegments(s)
             segmentList_simp.append(ns)
             numpts += len(ns)
         if numpts-1 >= depth:
             print "Number of points exceeds limit: "+repr(numpts)
             raise ValueError
         f.write("float diag["+repr(depth)+"][2] = {\n")
-        m = max(self.x//2,self.y//2)
+        m = max(self.x//2, self.y//2)
         i = 0
         for s in segmentList_simp:
             for p in s:
                 x, y = self.pixelscale(p,m)
                 f.write("       {"+repr(y)+", "+repr(x)+"},\n")
                 i += 1
-        for j in xrange(i,depth-1):
+        for j in xrange(i, depth-1):
             f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
         f.close()
 
-    def binWrite(self, fname, depth = 131072):
+    def binWrite(self, fname, depth = 2**20):
         numpts = 0
         segmentList_simp = []
         for s in self.segmentList:
-            ns = simplifySegments(s)
+            ns = simplifysegments(s)
             segmentList_simp.append(ns)
             numpts += len(ns)
         if numpts-1 >= depth:

@@ -19,7 +19,7 @@ class TestEuclidMSTZ(EuclidMST_instZ):
 
 class EuclidMST_instY(TestCase):
     def setUp(self):
-        segList = np.array([[[0, 3], [1, 3]], [[3, 3], [4, 3]], [[2,0],[2,2]]])
+        segList = np.array([[[0, 3], [1, 3]], [[3, 3], [4, 3]], [[2, 0], [2, 2]]])
         self.euclidmst = EuclidMST(segList)
 
 
@@ -29,3 +29,23 @@ class TestEuclidMSTY(EuclidMST_instY):
         d = self.euclidmst.spnTree.sum()
         d /= 2 # spnTree is undirected, so sum is 2x expected
         self.assertAlmostEqual(d,4)
+
+class TestEuclidMST_dfo(EuclidMST_instY):
+    def runTest(self):
+        tree = self.euclidmst.dfo_nonrec(0)
+        self.euclidmst.treetrav_nonrec(tree)
+        self.assertEqual(len(self.euclidmst.nodeTrav),11)
+
+
+class EuclidMST_instDEEP(TestCase):
+    def setUp(self):
+        l = []
+        for x in xrange(0,10000):
+            l.append([[x,0],[x,1]])
+        segList = np.array(l)
+        self.euclidmst = EuclidMST(segList)
+
+class TestEuclidMST_deep(EuclidMST_instDEEP):
+    def runTest(self):
+        # Shouldn't crash
+        self.euclidmst.segmentOrdering()

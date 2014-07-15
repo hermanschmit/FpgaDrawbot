@@ -40,3 +40,23 @@ class TestCannyI10_100_2(Canny_identity10_100_2):
     def runTest(self):
         self.assertEqual(self.CannyInst.grad.shape, (10,10))
         self.assertEqual(len(self.CannyInst.segmentList),2)
+
+class Canny_eye20x20_mst(TestCase):
+    def setUp(self):
+        im = np.eye(20,20,0)
+        for k in xrange(1,20):
+            im += np.eye(20,20,-1*k)
+
+        for k in xrange(18,20):
+            im += np.eye(20,20,k)
+        im = 100. * im
+        print im
+        self.CannyInst = Canny(im,sigma=0.0001)
+        print self.CannyInst.grad
+
+class TestCanny_eye_mst(Canny_eye20x20_mst):
+    def runTest(self):
+        self.assertEqual(self.CannyInst.grad.shape, (20,20))
+        self.assertEqual(len(self.CannyInst.segmentList),3)
+        self.CannyInst.euclidMstPrune(False,2)
+        self.assertEqual(len(self.CannyInst.segmentList),2)
