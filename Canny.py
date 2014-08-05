@@ -69,10 +69,6 @@ class Canny:
         3. thresLow will decide the lenght of hte edges, will not affect
            the number of edges that will be detected.
 
-        usage example:
-        >>>canny = Canny('image.jpg', 1.4, 50, 10)
-        >>>im = canny.grad
-        >>>Image.fromarray(im).show()
     """
 
     def euclidMstPrune(self,firstPreserved=True,factor=40):

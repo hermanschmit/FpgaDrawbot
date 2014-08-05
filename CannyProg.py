@@ -1,10 +1,10 @@
 import Canny
 import sys
-from scipy.misc import *
+from scipy import misc
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
-    canny = Canny.Canny(imread(ifile_name, flatten=True))
+    canny = Canny.Canny(misc.imread(ifile_name, flatten=True))
     print "Canny Done"
     canny.addInitialStartPt()
     canny.euclidMstPrune(True,40)
@@ -16,7 +16,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     canny.binWrite(bin_fn)
     canny.renderGrad()
     im = canny.grad
-    imsave(ofile_name1, im)
+    misc.imsave(ofile_name1, im)
 
 
 if __name__ == "__main__":
