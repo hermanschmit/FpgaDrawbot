@@ -1,4 +1,4 @@
-# README #
+# FPGA Drawbot Code #
 
 This is the python code associated with image processing for the Altera FPGA Drawbot.
 
