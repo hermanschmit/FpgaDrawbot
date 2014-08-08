@@ -1,6 +1,6 @@
 import scipy
 from scipy.spatial import Delaunay
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, lil_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.sparse.csgraph import depth_first_order
 
@@ -17,8 +17,10 @@ class EuclidMST:
 
     def minDist(self,i):
         x0 = self.distMatrix.getrow(i)
-        x0.eliminate_zeros()
-        return x0.data.min()
+        x0rd = x0.data
+        x0rd.sort()
+        for d in x0rd:
+            if d > 1e-10: return d
 
     def treetrav_nonrec(self,tree):
         stack = []
@@ -70,8 +72,8 @@ class EuclidMST:
         self.tri = scipy.spatial.Delaunay(points)
         print "Delaunay Done"
         self.size = len(self.tri.points)
-        self.distMatrix = csr_matrix((self.size, self.size),
-                                     dtype=float )
+        lilmatrix = lil_matrix((self.size, self.size), dtype=float)
+
         for smplx in self.tri.simplices:
             p0 = self.tri.points[smplx[0]]
             p1 = self.tri.points[smplx[1]]
@@ -81,21 +83,21 @@ class EuclidMST:
             eB = hyp(p1[0],p1[1],p2[0],p2[1])
             eC = hyp(p2[0],p2[1],p0[0],p0[1])
 
-            self.distMatrix[smplx[0], smplx[1]] = eA
-            self.distMatrix[smplx[1], smplx[0]] = eA
-            self.distMatrix[smplx[1], smplx[2]] = eB
-            self.distMatrix[smplx[2], smplx[1]] = eB
-            self.distMatrix[smplx[2], smplx[0]] = eC
-            self.distMatrix[smplx[0], smplx[2]] = eC
+            lilmatrix[smplx[0], smplx[1]] = eA
+            lilmatrix[smplx[1], smplx[0]] = eA
+            lilmatrix[smplx[1], smplx[2]] = eB
+            lilmatrix[smplx[2], smplx[1]] = eB
+            lilmatrix[smplx[2], smplx[0]] = eC
+            lilmatrix[smplx[0], smplx[2]] = eC
 
         # add the segment list with small delta
         # make sure no points from triangulation connecting real points
         # they will be restored
         for i in self.idxl:
-            self.distMatrix[i[0], i[1]] = 1e-10
-            self.distMatrix[i[1], i[0]] = 1e-10
+            lilmatrix[i[0], i[1]] = 1e-10
+            lilmatrix[i[1], i[0]] = 1e-10
 
-
+        self.distMatrix = lilmatrix.tocsr()
 
         print "start MST"
 
@@ -114,9 +116,9 @@ class EuclidMST:
         survivors = [False] * len(self.segmentList)
         survivors[0] = firstPreserved
 
-        for i in self.idxl:
-             self.distMatrix[i[0], i[1]] = 0
-             self.distMatrix[i[1], i[0]] = 0
+        #for i in self.idxl:
+        #     self.distMatrix[i[0], i[1]] = 0
+        #     self.distMatrix[i[1], i[0]] = 0
 
         if firstPreserved:
             lidx2 = self.lidx[1:]

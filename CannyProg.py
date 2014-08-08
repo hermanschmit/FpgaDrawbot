@@ -7,7 +7,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     canny = Canny.Canny(misc.imread(ifile_name, flatten=True))
     print "Canny Done"
     canny.addInitialStartPt()
-    canny.euclidMstPrune(True,40)
+    # canny.euclidMstPrune(True,40)
     canny.euclidMstOrder()
     print len(canny.segmentList)
     canny.concatSegments()
