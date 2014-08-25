@@ -10,7 +10,8 @@ contact: vishwa.hyd@gmail.com
 from scipy import *
 from scipy.misc import *
 from scipy.signal import convolve2d as conv
-#from scipy.spatial import *
+import scipy.ndimage as ndi
+from scipy.ndimage import (gaussian_filter, generate_binary_structure, binary_erosion, label)
 import numpy
 import EuclidMST
 
@@ -48,6 +49,15 @@ def simplifysegments(s):
             p1 = p2
     new_s.append(p2)
     return new_s
+
+def smooth_with_function_and_mask(image, function, mask):
+
+    bleed_over = function(mask.astype(float))
+    masked_image = numpy.zeros(image.shape, image.dtype)
+    masked_image[mask] = image[mask]
+    smoothed_image = function(masked_image)
+    output_image = smoothed_image / (bleed_over + numpy.finfo(float).eps)
+    return output_image
 
 
 class Canny:
@@ -113,28 +123,39 @@ class Canny:
         self.thresHigh = thresHigh
         self.thresLow = thresLow
 
-        # Create the gauss kernel for blurring the input image
-        # It will be convolved with the image
-        gausskernel = self.gaussFilter(sigma,5)
-        # fx is the filter for vertical gradient
-        # fy is the filter for horizontal gradient
-        # Please not the vertical direction is positive X
+        if False:
+            # Create the gauss kernel for blurring the input image
+            # It will be convolved with the image
+            gausskernel = self.gaussFilter(sigma,5)
+            # fx is the filter for vertical gradient
+            # fy is the filter for horizontal gradient
+            # Please not the vertical direction is positive X
 
-        fx = self.createFilter([1,  1,  1,
-                                0,  0,  0,
-                               -1, -1, -1])
-        fy = self.createFilter([-1, 0, 1,
-                                -1, 0, 1,
-                                -1, 0, 1])
+            imout = conv(self.imin, gausskernel)[1:-1, 1:-1]
 
-        imout = conv(self.imin, gausskernel)[1:-1, 1:-1]
-        gradx = conv(imout, fx)[1:-1, 1:-1]
-        grady = conv(imout, fy)[1:-1, 1:-1]
+        else:
+            mask = numpy.ones(self.imin.shape, dtype=bool)
+            fsmooth = lambda x: gaussian_filter(x, sigma, mode='constant')
+            imout = smooth_with_function_and_mask(self.imin, fsmooth, mask)
+
+        if False:
+            fx = self.createFilter([ 1,  1,  1,  0,  0,  0, -1, -1, -1])
+            fy = self.createFilter([-1,  0,  1, -1,  0,  1, -1,  0,  1])
+
+            gradx = conv(imout, fx)[1:-1, 1:-1]
+            grady = conv(imout, fy)[1:-1, 1:-1]
+
+        else:
+            #imout.astype(float)
+            grady = ndi.prewitt(imout, axis=1, mode='constant') * -1.0
+            gradx = ndi.prewitt(imout, axis=0, mode='constant')
+
+        grad = numpy.hypot(gradx, grady)
 
         # Net gradient is the square root of sum of square of the horizontal
         # and vertical gradients
 
-        grad = numpy.hypot(gradx, grady)
+        # grad = numpy.hypot(gradx, grady)
         theta = numpy.arctan2(grady, gradx)
         theta = 180 + (180/pi)*theta
         # Only significant magnitudes are considered. All others are removed

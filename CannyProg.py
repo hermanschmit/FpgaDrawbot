@@ -1,11 +1,14 @@
 import Canny
 import sys
 from scipy import misc
+from time import time
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
-    canny = Canny.Canny(misc.imread(ifile_name, flatten=True))
-    print "Canny Done"
+    im = misc.imread(ifile_name, flatten=True)
+    t1 = time()
+    canny = Canny.Canny(im)
+    print "Canny Done:", time()-t1
     canny.addInitialStartPt()
     # canny.euclidMstPrune(True,40)
     canny.euclidMstOrder()
