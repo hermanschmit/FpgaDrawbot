@@ -123,32 +123,13 @@ class Canny:
         self.thresHigh = thresHigh
         self.thresLow = thresLow
 
-        if False:
-            # Create the gauss kernel for blurring the input image
-            # It will be convolved with the image
-            gausskernel = self.gaussFilter(sigma,5)
-            # fx is the filter for vertical gradient
-            # fy is the filter for horizontal gradient
-            # Please not the vertical direction is positive X
 
-            imout = conv(self.imin, gausskernel)[1:-1, 1:-1]
+        mask = numpy.ones(self.imin.shape, dtype=bool)
+        fsmooth = lambda x: gaussian_filter(x, sigma, mode='constant')
+        imout = smooth_with_function_and_mask(self.imin, fsmooth, mask)
 
-        else:
-            mask = numpy.ones(self.imin.shape, dtype=bool)
-            fsmooth = lambda x: gaussian_filter(x, sigma, mode='constant')
-            imout = smooth_with_function_and_mask(self.imin, fsmooth, mask)
-
-        if False:
-            fx = self.createFilter([ 1,  1,  1,  0,  0,  0, -1, -1, -1])
-            fy = self.createFilter([-1,  0,  1, -1,  0,  1, -1,  0,  1])
-
-            gradx = conv(imout, fx)[1:-1, 1:-1]
-            grady = conv(imout, fy)[1:-1, 1:-1]
-
-        else:
-            #imout.astype(float)
-            grady = ndi.prewitt(imout, axis=1, mode='constant') * -1.0
-            gradx = ndi.prewitt(imout, axis=0, mode='constant')
+        grady = ndi.prewitt(imout, axis=1, mode='constant') * -1.0
+        gradx = ndi.prewitt(imout, axis=0, mode='constant')
 
         grad = numpy.hypot(gradx, grady)
 
@@ -174,26 +155,15 @@ class Canny:
         x135, y135 = where( ((theta>=112.5)*(theta<157.5)
                             +(theta>=292.5)*(theta<337.5)) == True)
 
-        self.theta = theta
+        #self.theta = theta
         # Image.fromarray(self.theta).convert('L').save('Angle map.jpg')
-        self.theta[x0, y0] = 0
-        self.theta[x45, y45] = 45
-        self.theta[x90, y90] = 90
-        self.theta[x135, y135] = 135
-        self.grad = grad.copy()
+        theta[x0, y0] = 0
+        theta[x45, y45] = 45
+        theta[x90, y90] = 90
+        theta[x135, y135] = 135
 
-        # delete added elements to grad
-        self.grad = numpy.delete(self.grad,numpy.s_[0:1],0)
-        self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],0)
-        self.grad = numpy.delete(self.grad,numpy.s_[0:1],1)
-        self.grad = numpy.delete(self.grad,numpy.s_[-2:-1],1)
-        self.theta = numpy.delete(self.theta,numpy.s_[0:1],0)
-        self.theta = numpy.delete(self.theta,numpy.s_[-2:-1],0)
-        self.theta = numpy.delete(self.theta,numpy.s_[0:1],1)
-        self.theta = numpy.delete(self.theta,numpy.s_[-2:-1],1)
-
-        #print self.grad
-        #print self.theta
+        self.grad = grad[1:-1, 1:-1]
+        self.theta = theta[1:-1, 1:-1]
 
         x, y = self.grad.shape
         grad2 = self.grad.copy()
@@ -229,7 +199,6 @@ class Canny:
         # thresLow is used to track the whole edge till end of the edge.
 
         self.segmentList = []
-        # print "initial init_point:", init_point
         segment = [init_point]
 
         while init_point != -1:
@@ -421,7 +390,8 @@ class Canny:
 
     def pixelscale(self,pt,maxXY):
         px = float(pt[0]-self.x//2) / maxXY
-        py = -1.0 * float(pt[1]-self.y//2) / maxXY
+        # py = -1.0 * float(pt[1]-self.y//2) / maxXY
+        py = 1.0 * float(pt[1]-self.y//2) / maxXY
         return px, py
 
     def cArrayWrite(self, fname, depth = 2**20):
