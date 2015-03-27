@@ -32,6 +32,34 @@ def botTransformReverse(coords, m, offset, s):
     return x, y
     #return x-m,y-m
 
+def colinear(p0, p1, p2):
+    x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
+    x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
+    return abs(x1 * y2 - x2 * y1) < 1e-5
+
+
+def neighbor(p0,p1):
+    x, y = abs(p1[0]-p0[0]), abs(p1[1]-p1[0])
+    return x <= 1 and y <= 1
+
+
+def simplifysegments(s):
+    if len(s) < 3:
+        return s
+    new_s = []
+    p0 = s[0]
+    p1 = s[1]
+    new_s.append(p0)
+    for p2 in s[2:]:
+        if colinear(p0, p1, p2):
+            p1 = p2
+        else:
+            new_s.append(p1)
+            p0 = p1
+            p1 = p2
+    new_s.append(p2)
+    return new_s
+
 
 class Sketchy:
 
@@ -81,6 +109,7 @@ class Sketchy:
         if commit:
             if self.drawn_mat[x, y] < self.levels-1 :
                 self.drawn_mat[x, y] += 1
+            self.segment.append((x,y))
         score += self.score((x,y))
         return score
 
@@ -127,6 +156,11 @@ class Sketchy:
             self.target_mat = image_matrix[:]
 
         self.pen = tuple([z/2 for z in self.target_mat.shape])
+        (self.x,self.y) = self.target_mat.shape
+
+        self.segment = []
+        self.segmentList = [self.segment]
+        self.segment.append(self.pen)
 
         self.quantMatrix(self.target_mat)
 
@@ -137,14 +171,18 @@ class Sketchy:
 
     def draw_line(self):
         best = self.pen
-        best_val = float("-inf")
-        for eval in xrange(self.moveEval):
-            newpt = (random.randint(0,511),
-                     random.randint(0,511))
-            s = self.bresenhamScore(self.pen,newpt)
-            if s > best_val:
-                best = newpt
-                best_val = s
+        for delta in (40,80,120,160):
+            best_val = float("-inf")
+            for eval in xrange(self.moveEval):
+
+                newpt = (self.pen[0] + random.randint(-delta,delta),self.pen[1] + random.randint(-delta,delta))
+                newpt = (max(0,min(self.target_mat.shape[0]-1,newpt[0])), max(0,min(self.target_mat.shape[1]-1,newpt[1])))
+                s = self.bresenhamScore(self.pen,newpt)
+                if s > best_val:
+                    best = newpt
+                    best_val = s
+            if best_val >= 0.0:
+                break
         self.bresenhamScore(self.pen,best,commit=True)
         self.pen = best
         # Evaluate Move
@@ -152,3 +190,63 @@ class Sketchy:
         # Draw line in drawn_mat
 
         # Evaluate Moves
+
+    def pixelscale(self,pt,maxXY):
+        px = float(pt[0]-self.x//2) / maxXY
+        # py = -1.0 * float(pt[1]-self.y//2) / maxXY
+        py = 1.0 * float(pt[1]-self.y//2) / maxXY
+        return px, py
+
+    def cArrayWrite(self, fname, depth = 2**20):
+        f = open(fname,'w')
+        numpts = 0
+        segmentList_simp = []
+        for s in self.segmentList:
+            ns = simplifysegments(s)
+            segmentList_simp.append(ns)
+            numpts += len(ns)
+        if numpts-1 >= depth:
+            print "Number of points exceeds limit: "+repr(numpts)
+            raise ValueError
+        f.write("float diag["+repr(depth)+"][2] = {\n")
+        m = max(self.x//2, self.y//2)
+        i = 0
+        for s in segmentList_simp:
+            for p in s:
+                x, y = self.pixelscale(p,m)
+                f.write("       {"+repr(y)+", "+repr(x)+"},\n")
+                i += 1
+        for j in xrange(i, depth-1):
+            f.write("       {NAN, NAN},\n")
+        f.write("       {NAN, NAN}\n")
+        f.write(" };\n")
+        f.close()
+
+    def binWrite(self, fname, depth = 2**20):
+        numpts = 0
+        segmentList_simp = []
+        for s in self.segmentList:
+            ns = simplifysegments(s)
+            segmentList_simp.append(ns)
+            numpts += len(ns)
+        if numpts-1 >= depth:
+            print "Number of points exceeds limit: "+repr(numpts)
+            raise ValueError
+        m = max(self.x//2,self.y//2)
+        i = 0
+        from array import array
+        output_file = open(fname, 'wb')
+        l = [float('NaN')] * (2 * depth)
+
+        for s in segmentList_simp:
+            for p in s:
+                x, y = self.pixelscale(p,m)
+                l[i] = y
+                l[i+1] = x
+                i += 2
+
+
+        float_array = array('f', l)
+        float_array.tofile(output_file)
+        output_file.close()
+
