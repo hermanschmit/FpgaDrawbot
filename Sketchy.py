@@ -8,18 +8,12 @@ import math
 import random
 
 
-def botTransform(x,y,s=1000):
-    #f = math.sqrt(x*x + y*y)
-    #g = math.sqrt((s-x)*(s-x) + y*y)
-    return round(botTransformRaw(x,y,s))
-
-def botTransformRaw(coords):
-    s = 512
-    x=coords[0]
-    y=coords[1]
-    f = math.sqrt(x*x + y*y)
-    g = math.sqrt((s-x)*(s-x) + y*y)
-    return f, g
+def botTransform(coords,m,offset,s):
+    x = coords[0]
+    y = coords[1]
+    f = math.sqrt((m+x)*(m+x) + m + y*y)
+    g = math.sqrt((m-s+x)*(m-s+x) + m + y*y)
+    return f-offset, g-offset
 
 def botTransformReverse(coords, m, offset, s):
     f = coords[0]+offset
@@ -30,7 +24,6 @@ def botTransformReverse(coords, m, offset, s):
         return float('nan'),float('nan')
     y = math.sqrt(f*f - mx2 - m)
     return x, y
-    #return x-m,y-m
 
 def colinear(p0, p1, p2):
     x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
@@ -127,31 +120,38 @@ class Sketchy:
         self.quant_idx = reshape(qnt,(mat.shape[0],mat.shape[1]))
         self.quant_mat = self.centroids[self.quant_idx,0]
 
-    def __init__(self, image_matrix, levels, transform=False ):
+    def untransform(self):
+        rt = ndimage.interpolation.geometric_transform(self.drawn_mat,
+                                                       botTransform,
+                                                       output_shape=self.imat.shape,
+                                                       extra_arguments=(self.m,self.m,self.BASELINE))
+        self.drawn_mat = rt[:]
+
+    def __init__(self, image_matrix, levels, scale=False, transform=False ):
         self.moveEval = 200
 
 
         self.measCentroid(image_matrix,levels)
         self.levels = levels
 
-        if transform:
+        if scale:
             # resize the image
             alpha = self.MAXDELTA / (self.BASELINE * math.sqrt(2.0))
             width = image_matrix.shape[1]
-            scale = self.BASELINE * alpha / width
-            m = self.BASELINE*(1-alpha)/2
-            self.imat = misc.imresize(image_matrix, scale)
-            print alpha, width, scale, m
+            sc = self.BASELINE * alpha / width
+            self.m = self.BASELINE*(1-alpha)/2
+            self.imat = misc.imresize(image_matrix, sc)
 
-            self.rot_mat = misc.imrotate(self.imat,90)
-
-
-            self.target_mat = ndimage.interpolation.geometric_transform(self.rot_mat,
+            if transform:
+                self.rot_mat = misc.imrotate(self.imat,90)
+                self.target_mat = ndimage.interpolation.geometric_transform(self.rot_mat,
                                                                      botTransformReverse,
                                                                      output_shape=(512,512),
-                                                                     extra_arguments=(m,
-                                                                                      m,
+                                                                     extra_arguments=(self.m,
+                                                                                      self.m,
                                                                                       self.BASELINE))
+            else:
+                self.target_mat = self.imat[:]
         else:
             self.target_mat = image_matrix[:]
 
@@ -167,7 +167,6 @@ class Sketchy:
         self.drawn_mat = ndarray(shape=self.target_mat.shape,dtype=uint8)
         self.drawn_mat.fill(0)
 
-        #self.bot_mat = ndimage.filters.gaussian_filter(self.bot_mat, 2.5, mode='nearest')
 
     def draw_line(self):
         best = self.pen

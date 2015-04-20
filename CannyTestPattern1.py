@@ -11,9 +11,13 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     print "Canny Done:", time()-t1
     canny.x = 500
     canny.y = 500
+    canny.segmentList = []
+    for x in xrange(0,500,20):
+        canny.segmentList.append([[x,0],[x,500],[x+10,500],[x+10,0]])
+    for y in xrange(0,500,20):
+        canny.segmentList.append([[500,y],[0,y],[0,y+10],[500,y+10]])
 
-    canny.segmentList = [[250,250],[50,50],[450,50],[450,450],[50,450]]
-
+    print canny.segmentList
     canny.binWrite(bin_fn)
 
 
