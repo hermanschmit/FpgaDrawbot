@@ -159,7 +159,7 @@ class EuclidMST:
         for z in xrange(0,len(self.nodeTrav)-1):
             s0 = self.lidx[self.nodeTrav[z]]
             s1 = self.lidx[self.nodeTrav[z+1]]
-            if s0[0] == s1[0]:
+            if s0[0] == s1[0] or len(self.segmentList[s0[0]]) == 1:
                 if s0[1]:
                     self.newSegmentTree.append(self.segmentList[s0[0]])
                 else:
@@ -167,6 +167,7 @@ class EuclidMST:
                 if not covered[s0[0]]:
                     uncovered_count -= 1
                     covered[s0[0]] = True
+
             if uncovered_count <= 0:
                 break
 

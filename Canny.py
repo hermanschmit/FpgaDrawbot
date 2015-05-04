@@ -14,41 +14,8 @@ import scipy.ndimage as ndi
 from scipy.ndimage import (gaussian_filter, generate_binary_structure, binary_erosion, label)
 import numpy
 import EuclidMST
+import Segments
 
-
-def hyp(ax, ay, bx, by):
-    xdiff = ax - bx
-    ydiff = ay - by
-    return math.hypot(xdiff,ydiff)
-
-
-def colinear(p0, p1, p2):
-    x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
-    x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
-    return abs(x1 * y2 - x2 * y1) < 1e-5
-
-
-def neighbor(p0,p1):
-    x, y = abs(p1[0]-p0[0]), abs(p1[1]-p1[0])
-    return x <= 1 and y <= 1
-
-
-def simplifysegments(s):
-    if len(s) < 3:
-        return s
-    new_s = []
-    p0 = s[0]
-    p1 = s[1]
-    new_s.append(p0)
-    for p2 in s[2:]:
-        if colinear(p0, p1, p2):
-            p1 = p2
-        else:
-            new_s.append(p1)
-            p0 = p1
-            p1 = p2
-    new_s.append(p2)
-    return new_s
 
 def smooth_with_function_and_mask(image, function, mask):
 
@@ -82,36 +49,70 @@ class Canny:
     """
 
     def euclidMstPrune(self,firstPreserved=True,factor=40):
-        emst = EuclidMST.EuclidMST(self.segmentList)
+        emst = EuclidMST.EuclidMST(self.segments.segmentList)  # TODO fix
         emst.lonelySegmentRemoval(firstPreserved,factor)
-        self.segmentList = emst.newSegmentTree
+        self.segments.segmentList = emst.newSegmentTree # TODO fix
 
     def euclidMstOrder(self):
-        emst2 = EuclidMST.EuclidMST(self.segmentList)
+        emst2 = EuclidMST.EuclidMST(self.segments.segmentList)  # TODO fix
         emst2.segmentOrdering()
-        self.segmentList = emst2.newSegmentTree
+        self.segments.segmentList = emst2.newSegmentTree # TODO fix
 
     def addInitialStartPt(self):
-        self.x, self.y = self.grad.shape
-        self.segmentList.insert(0, [[self.x // 2, self.y // 2]])
+        self.segments.addInitialStartPt(self.grad.shape)
 
     def segment2grad(self,interior=False):
         self.grad[:, :] = 0
-        for s in self.segmentList:
+        for s in self.segments.segmentList: # TODO fix
             for p in s:
                 self.grad[p[0], p[1]] = -1
-        s0 = self.segmentList[0]
-        for s1 in self.segmentList[1:]:
+        s0 = self.segments.segmentList[0]  # TODO fix
+        for s1 in self.segments.segmentList[1:]:  # TODO
             self.bresenhamFillIn(s0[-1], s1[0])
             s0 = s1
         if interior:
-            for s0 in self.segmentList:
+            for s0 in self.segments.segmentList: # TODO
                 p0 = s0[0]
                 for p1 in s0[1:]:
                     self.bresenhamFillIn(p0,p1)
                     p0 = p1
 
-    def __init__(self, image_matrix, sigma = 1.8, thresHigh = 40, thresLow = 6, thresHighLimit=2**18):
+    def stipple(self,stride=4):
+        # probably want to smooth imin
+        im = self.imin[:]
+
+        A,B,G,S = [7.0/16.0, 3.0/16.0, 5.0/16.0, 1.0/16.0]
+        (xdim,ydim) = self.imin.shape
+
+        for y in xrange(0,ydim-2-stride,stride):
+            for x in xrange(0,xdim-2-stride,stride):
+                oldpixel = im[x,y]
+                if oldpixel > 128:
+                    newpixel = 255
+                else:
+                    newpixel = 0
+
+                im[x,y] = float(newpixel)
+                quant_error = float(oldpixel - newpixel)
+                if x < xdim-2 - 1:
+                    im[x+stride, y] += (A * quant_error)
+                if (x > 0) and (y < ydim-2 - 1):
+                    im[x-stride, y+stride] += (B * quant_error)
+                if y < ydim-2 - 1:
+                    im[x, y+stride] += (G * quant_error)
+                if (x < xdim-2 - 1) and (y < ydim-2 - 1):
+                    im[x+stride, y+stride] += (S * quant_error)
+
+        self.stippleSegmentList = []
+        for xi in xrange(0,xdim-2-stride,stride):
+            for yi in xrange(0,ydim-2-stride,stride):
+                if im[xi,yi] < 128 and self.grad[xi,yi] != -1:
+                    self.stippleSegmentList.append([[xi,yi]])
+                    # self.segmentList.append([[xi,yi]])
+
+
+
+    def __init__(self, image_matrix, sigma = 1.0, thresHigh = 40, thresLow = 6, thresHighLimit=2**18):
         """
 
         :param imname:
@@ -190,15 +191,13 @@ class Canny:
                     if not test:
                         self.grad[i, j] = 0
 
-        #print self.grad
-
         init_point = self.initPt(thresHighLimit)
         # Hysteresis tracking. Since we know that significant edges are
         # continuous contours, we will exploit the same.
         # thresHigh is used to track the starting point of edges and
         # thresLow is used to track the whole edge till end of the edge.
 
-        self.segmentList = []
+        self.segments = Segments.Segments()
         segment = [init_point]
 
         while init_point != -1:
@@ -217,18 +216,24 @@ class Canny:
                 p0 = self.nextNbd(p0, p1, p2)
 
             if len(segment) >= 2:
-                self.segmentList.append(segment)
+                self.segments.append(segment)
 
             init_point = self.nextPt(self.grad)
             segment = [init_point]
+
+        self.stippleSegmentList = []
 
     def renderGrad(self):
         """
         Convert grad == -1 to pixels
         """
         x,y = where(self.grad == -1)
-        self.grad[:, :] = 0
-        self.grad[x, y] = 255
+        self.grad[:, :] = 255
+        self.grad[x, y] = 0
+
+        for ptl in self.stippleSegmentList:
+            for pt in ptl:
+                self.grad[pt[0],pt[1]] = 0
 
     def bresenhamFillIn(self,p0,p1):
         """
@@ -358,107 +363,14 @@ class Canny:
                 return [x,y]
         return -1
 
-    def pruneLonelySegments(self,ratio=100.):
-        newSegmentList = list()
-        newSegmentList.append(self.segmentList[0])
+    def cArrayWrite(self, fname):
+        self.segments.cArrayWrite(fname)
 
-        if len(self.segmentList) < 3: return
-        s0 = self.segmentList[0]
-        s1 = self.segmentList[1]
-        for i in xrange(2, len(self.segmentList)):
-            s2 = self.segmentList[i]
-            drawnA = hyp(*(s0[-1] + s1[0]))
-            drawnB = hyp(*(s1[-1] + s2[0]))
-            segment = max(hyp(*(s1[0] + s1[-1])),len(s1))
-            limit = segment * ratio
-            if drawnA < limit or drawnB < limit:
-                newSegmentList.append(s1)
-                s0 = s1
-                s1 = s2
-            else:
-                s1 = s2
-
-        # add the last?
-        last_2 = self.segmentList[-2]
-        last = self.segmentList[-1]
-        drawn = hyp(*(last_2[-1] + last[0]))
-        limit = ratio * hyp(*(last[0] + last[-1]))
-        if drawn < limit:
-            newSegmentList.append(self.segmentList[-1])
-        self.segmentList = newSegmentList[:]
-
-
-    def pixelscale(self,pt,maxXY):
-        px = float(pt[0]-self.x//2) / maxXY
-        # py = -1.0 * float(pt[1]-self.y//2) / maxXY
-        py = 1.0 * float(pt[1]-self.y//2) / maxXY
-        return px, py
-
-    def cArrayWrite(self, fname, depth = 2**20):
-        f = open(fname,'w')
-        numpts = 0
-        segmentList_simp = []
-        for s in self.segmentList:
-            ns = simplifysegments(s)
-            segmentList_simp.append(ns)
-            numpts += len(ns)
-        if numpts-1 >= depth:
-            print "Number of points exceeds limit: "+repr(numpts)
-            raise ValueError
-        f.write("float diag["+repr(depth)+"][2] = {\n")
-        m = max(self.x//2, self.y//2)
-        i = 0
-        for s in segmentList_simp:
-            for p in s:
-                x, y = self.pixelscale(p,m)
-                f.write("       {"+repr(y)+", "+repr(x)+"},\n")
-                i += 1
-        for j in xrange(i, depth-1):
-            f.write("       {NAN, NAN},\n")
-        f.write("       {NAN, NAN}\n")
-        f.write(" };\n")
-        f.close()
-
-    def binWrite(self, fname, depth = 2**20):
-        numpts = 0
-        segmentList_simp = []
-        for s in self.segmentList:
-            ns = simplifysegments(s)
-            segmentList_simp.append(ns)
-            numpts += len(ns)
-        if numpts-1 >= depth:
-            print "Number of points exceeds limit: "+repr(numpts)
-            raise ValueError
-        m = max(self.x//2,self.y//2)
-        i = 0
-        from array import array
-        output_file = open(fname, 'wb')
-        l = [float('NaN')] * (2 * depth)
-
-        for s in segmentList_simp:
-            for p in s:
-                x, y = self.pixelscale(p,m)
-                l[i] = y
-                l[i+1] = x
-                i += 2
-
-
-        float_array = array('f', l)
-        float_array.tofile(output_file)
-        output_file.close()
+    def binWrite(self, fname):
+        self.segments.binWrite(fname)
 
     def concatSegments(self):
-        sL = []
-        s_prev = self.segmentList[0]
-        for s_new in self.segmentList[1:]:
-            s_prev = numpy.append(s_prev,s_new,axis=0)
-            # if neighbor(s_prev[-1],s_new[0]):
-            #     s_prev = numpy.append(s_prev,s_new,axis=0)
-            # else:
-            #     sL.append(s_prev)
-            #     s_prev = s_new
-        sL.append(s_prev)
-        self.segmentList = sL
+        self.segments.concatSegments()
 
 
 # End of module Canny

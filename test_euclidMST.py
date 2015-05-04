@@ -37,6 +37,51 @@ class TestEuclidMST_dfo(EuclidMST_instY):
         self.assertEqual(len(self.euclidmst.nodeTrav),11)
 
 
+class EuclidMST_instW(TestCase):
+    def setUp(self):
+        segList = np.array([[[1, 3]], [[3, 3], [4, 3]], [[2, 0], [2, 2]]])
+        self.euclidmst = EuclidMST(segList)
+
+class TestEuclidMST_pt(EuclidMST_instW):
+    def runTest(self):
+        self.assertEqual(self.euclidmst.size,5)
+        d = self.euclidmst.spnTree.sum()
+        d /= 2
+        self.assertAlmostEqual(d,4)
+        tree = self.euclidmst.dfo_nonrec(0)
+        self.euclidmst.treetrav_nonrec(tree)
+        self.assertAlmostEqual(len(self.euclidmst.nodeTrav),9)
+
+class EuclidMST_instV(TestCase):
+    def setUp(self):
+        segList = np.array([[[1, 3]], [[3, 3]], [[2, 0]]])
+        self.euclidmst = EuclidMST(segList)
+
+class TestEuclidMST_pts(EuclidMST_instV):
+    def runTest(self):
+        self.assertEqual(self.euclidmst.size,3)
+        d = self.euclidmst.spnTree.sum()
+        d /= 2
+        self.assertAlmostEqual(d,14)
+        tree = self.euclidmst.dfo_nonrec(0)
+        self.euclidmst.treetrav_nonrec(tree)
+        self.assertAlmostEqual(len(self.euclidmst.nodeTrav),5)
+
+class EuclidMST_instU(TestCase):
+    def setUp(self):
+        segList = np.array([[[3, 3], [4, 3]], [[2, 0], [2, 2]], [[1, 3]]])
+        self.euclidmst = EuclidMST(segList)
+
+class TestEuclidMST_ptsU(EuclidMST_instU):
+    def runTest(self):
+        self.assertEqual(self.euclidmst.size,5)
+        d = self.euclidmst.spnTree.sum()
+        d /= 2
+        self.assertAlmostEqual(d,4)
+        tree = self.euclidmst.dfo_nonrec(0)
+        self.euclidmst.treetrav_nonrec(tree)
+        self.assertAlmostEqual(len(self.euclidmst.nodeTrav), 9)
+
 class EuclidMST_instDEEP(TestCase):
     def setUp(self):
         l = []
