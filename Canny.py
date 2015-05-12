@@ -62,7 +62,7 @@ class Canny:
         self.segments.addInitialStartPt(self.grad.shape)
 
     def segment2grad(self,interior=False):
-        self.grad[:, :] = 0
+        self.grad = numpy.zeros((self.segments.xmax+1,self.segments.ymax+1),dtype=numpy.int)
         for s in self.segments.segmentList: # TODO fix
             for p in s:
                 self.grad[p[0], p[1]] = -1

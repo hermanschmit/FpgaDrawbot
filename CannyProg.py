@@ -18,6 +18,8 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     print len(canny.segments.segmentList)
     canny.concatSegments()
     print len(canny.segments.segmentList)
+    #canny.segments.flipY()
+    #canny.segments.scale(0.5)
     canny.segment2grad(interior=True)
     canny.binWrite(bin_fn)
     canny.renderGrad()
