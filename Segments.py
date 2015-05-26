@@ -80,7 +80,6 @@ class Segments:
             print "Number of points exceeds limit: "+repr(numpts)
             raise ValueError
         f.write("float diag["+repr(self.max_depth)+"][2] = {\n")
-        m = max(self.xmax//2, self.ymax//2)
         i = 0
         for s in segmentList_simp:
             for p in s:
@@ -103,7 +102,6 @@ class Segments:
         if numpts-1 >= self.max_depth:
             print "Number of points exceeds limit: "+repr(numpts)
             raise ValueError
-        m = max(self.xmax//2,self.ymax//2)
         i = 0
         from array import array
         output_file = open(fname, 'wb')
@@ -131,7 +129,7 @@ class Segments:
     def pixelscale(self,pt):
         maxXY = max(self.xmax,self.ymax)//2
         px = float(pt[0]-self.xmax//2) / maxXY
-        py = 1.0 * float(pt[1]-self.ymax//2) / maxXY
+        py = float(pt[1]-self.ymax//2) / maxXY
         return px, py
 
     def flipY(self):
@@ -179,6 +177,52 @@ class Segments:
         if drawn < limit:
             newSegmentList.append(self.segmentList[-1])
         self.segmentList = newSegmentList[:]
+
+    def bresenhamFillIn(self,p0,p1):
+        """
+        Bresenham's line algorithm
+        """
+        dx = abs(p1[0] - p0[0])
+        dy = abs(p1[1] - p0[1])
+        x, y = p0[0],p0[1]
+        sx = -1 if p0[0] > p1[0] else 1
+        sy = -1 if p0[1] > p1[1] else 1
+        if dx > dy:
+            err = dx / 2.0
+            while x != p1[0]:
+                self.grad[x, y] = -1
+                err -= dy
+                if err < 0:
+                    y += sy
+                    err += dx
+                x += sx
+        else:
+            err = dy / 2.0
+            while y != p1[1]:
+                self.grad[x, y] = -1
+                err -= dx
+                if err < 0:
+                    x += sx
+                    err += dy
+                y += sy
+        self.grad[x, y] = -1
+
+    def segment2grad(self, interior=False):
+        self.grad = numpy.zeros((self.xmax+1,self.ymax+1),dtype=numpy.int)
+
+        for s in self.segmentList:
+            for p in s:
+                self.grad[p[0], p[1]] = -1
+        s0 = self.segmentList[0]
+        for s1 in self.segmentList[1:]:
+            self.bresenhamFillIn(s0[-1], s1[0])
+            s0 = s1
+        if interior:
+            for s0 in self.segmentList:
+                p0 = s0[0]
+                for p1 in s0[1:]:
+                    self.bresenhamFillIn(p0,p1)
+                    p0 = p1
 
 
 

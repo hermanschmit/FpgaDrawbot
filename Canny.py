@@ -62,20 +62,7 @@ class Canny:
         self.segments.addInitialStartPt(self.grad.shape)
 
     def segment2grad(self,interior=False):
-        self.grad = numpy.zeros((self.segments.xmax+1,self.segments.ymax+1),dtype=numpy.int)
-        for s in self.segments.segmentList: # TODO fix
-            for p in s:
-                self.grad[p[0], p[1]] = -1
-        s0 = self.segments.segmentList[0]  # TODO fix
-        for s1 in self.segments.segmentList[1:]:  # TODO
-            self.bresenhamFillIn(s0[-1], s1[0])
-            s0 = s1
-        if interior:
-            for s0 in self.segments.segmentList: # TODO
-                p0 = s0[0]
-                for p1 in s0[1:]:
-                    self.bresenhamFillIn(p0,p1)
-                    p0 = p1
+        self.segments.segment2grad(interior)
 
     def stipple(self,stride=4):
         # probably want to smooth imin
@@ -228,41 +215,10 @@ class Canny:
         Convert grad == -1 to pixels
         """
         x,y = where(self.grad == -1)
-        self.grad[:, :] = 255
-        self.grad[x, y] = 0
+        self.segments.grad[:, :] = 255
+        self.segments.grad[x, y] = 0
 
-        for ptl in self.stippleSegmentList:
-            for pt in ptl:
-                self.grad[pt[0],pt[1]] = 0
 
-    def bresenhamFillIn(self,p0,p1):
-        """
-        Bresenham's line algorithm
-        """
-        dx = abs(p1[0] - p0[0])
-        dy = abs(p1[1] - p0[1])
-        x, y = p0[0],p0[1]
-        sx = -1 if p0[0] > p1[0] else 1
-        sy = -1 if p0[1] > p1[1] else 1
-        if dx > dy:
-            err = dx / 2.0
-            while x != p1[0]:
-                self.grad[x, y] = -1
-                err -= dy
-                if err < 0:
-                    y += sy
-                    err += dx
-                x += sx
-        else:
-            err = dy / 2.0
-            while y != p1[1]:
-                self.grad[x, y] = -1
-                err -= dx
-                if err < 0:
-                    x += sx
-                    err += dy
-                y += sy
-        self.grad[x, y] = -1
 
 
     def createFilter(self,rawfilter):
