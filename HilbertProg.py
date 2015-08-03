@@ -8,7 +8,7 @@ from time import time
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = misc.imread(ifile_name, flatten=True)
     h = Hilbert.Hilbert(im)
-    h.segment2grad(interior=True)
+    h.segment2grad(interior=True,scale=2)
     h.binWrite(bin_fn)
     h.renderGrad()
     im = h.segments.grad

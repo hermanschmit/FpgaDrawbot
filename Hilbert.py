@@ -11,14 +11,17 @@ import numpy
 import Segments
 import Queue as Q
 
-def xy2d(n, x, y):
+def xy2d(n, x, y, moore=False):
     d = 0
     s = n//2
     while s > 0:
         rx = (x & s) > 0
         ry = (y & s) > 0
         d += s * s * ((3 * rx) ^ ry)
-        rot(s, x, y, rx, ry)
+        if moore and s*2 >= n:
+            x, y = rot_mooreI(s, x, y, rx, ry)
+        else:
+            x, y = rot(s, x, y, rx, ry)
         s //= 2
     return d
 
@@ -33,6 +36,22 @@ def rot(n, x, y, rx, ry):
         return y, x
     return x, y
 
+def rot_moore(n, x, y, rx, ry):
+    """
+    rotate/flip a quadrant appropriately
+
+    """
+    if rx == 0:
+        return n-1-y,x
+    else:
+        return y,n-1-x
+
+
+def rot_mooreI(n, x, y, rx, ry):
+    if rx == 0:
+        return y,n-1-x
+    else:
+        return n-1-y,x
 
 class Hilbert:
     """
@@ -48,8 +67,8 @@ class Hilbert:
     """
 
 
-    def segment2grad(self,interior=False):
-        self.segments.segment2grad(interior)
+    def segment2grad(self,interior=False,scale=1,maxsegments=2**20):
+        self.segments.segment2grad(interior,scale,maxsegments)
 
     def stipple(self,stride=1):
         # probably want to smooth imin
@@ -77,7 +96,40 @@ class Hilbert:
                 if (x < xdim-2 - 1) and (y < ydim-2 - 1):
                     self.stipple_im[x+stride, y+stride] += (S * quant_error)
 
-    def __init__(self, image_matrix):
+    def power2(self,x):
+        y = 2**ceil(log2(x))
+        return y
+
+    def hilbertSequence(self):
+        q = Q.PriorityQueue()
+
+        (xL,yL) = self.power2(shape(self.stipple_im))
+        dim = max(xL,yL)
+        scaleX, scaleY = tuple([dim/z for z in shape(self.stipple_im)])
+
+        xS, yS = where(self.stipple_im == 0)
+
+        for x,y in zip(xS,yS):
+            xS2 = int(x*scaleX)
+            yS2 = int(y*scaleY)
+            #d = xy2d(int(dim**2),xS2,yS2,moore=True)
+            d = xy2d(int(dim),xS2,yS2,moore=True)
+            q.put((d,(x,y)))
+        # Cut out first quarter of the image to append to end
+        seg1 = []
+        seg234 = []
+        limit = int((dim)**2)/4
+        while not q.empty():
+            p = q.get()
+            pt = p[1]
+            if p[0] <= limit:
+                seg1.append([pt[0], pt[1]])
+            else:
+                seg234.append([pt[0], pt[1]])
+        seg234.extend(seg1)
+        return seg234
+
+    def __init__(self, image_matrix, white=1):
         """
 
         :param imname:
@@ -86,21 +138,12 @@ class Hilbert:
         :param thresLow:
         """
         self.imin = image_matrix
-        self.imin /= 4
-        self.imin += 255 - (255//4)
+        self.imin /= white
+        self.imin += 255 - (255//white)
         self.stipple()
         self.grad = zeros(shape(self.imin), dtype=numpy.int)
 
-        q = Q.PriorityQueue()
-        xS, yS = where(self.stipple_im == 0)
-        for x,y in zip(xS,yS):
-            d = xy2d(1024,x,y)
-            q.put((d,(x,y)))
-        seg = []
-        while not q.empty():
-            p = q.get()
-            pt = p[1]
-            seg.append([pt[0], pt[1]])
+        seg = self.hilbertSequence()
 
         self.segments = Segments.Segments()
         self.segments.append(seg)
@@ -113,36 +156,6 @@ class Hilbert:
         x,y = where(self.grad == -1)
         self.grad[:, :] = 255
         self.grad[x, y] = 0
-
-
-    def bresenhamFillIn(self,p0,p1):
-        """
-        Bresenham's line algorithm
-        """
-        dx = abs(p1[0] - p0[0])
-        dy = abs(p1[1] - p0[1])
-        x, y = p0[0],p0[1]
-        sx = -1 if p0[0] > p1[0] else 1
-        sy = -1 if p0[1] > p1[1] else 1
-        if dx > dy:
-            err = dx / 2.0
-            while x != p1[0]:
-                self.grad[x, y] = -1
-                err -= dy
-                if err < 0:
-                    y += sy
-                    err += dx
-                x += sx
-        else:
-            err = dy / 2.0
-            while y != p1[1]:
-                self.grad[x, y] = -1
-                err -= dx
-                if err < 0:
-                    x += sx
-                    err += dy
-                y += sy
-        self.grad[x, y] = -1
 
 
     def cArrayWrite(self, fname):

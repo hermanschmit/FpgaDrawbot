@@ -178,18 +178,19 @@ class Segments:
             newSegmentList.append(self.segmentList[-1])
         self.segmentList = newSegmentList[:]
 
-    def bresenhamFillIn(self,p0,p1):
+    def bresenhamFillIn(self,p0,p1,scale=1):
         """
         Bresenham's line algorithm
         """
-        dx = abs(p1[0] - p0[0])
-        dy = abs(p1[1] - p0[1])
-        x, y = p0[0],p0[1]
+        dx = scale*abs(p1[0] - p0[0])
+        dy = scale*abs(p1[1] - p0[1])
+        x = scale*p0[0]
+        y = scale*p0[1]
         sx = -1 if p0[0] > p1[0] else 1
         sy = -1 if p0[1] > p1[1] else 1
         if dx > dy:
             err = dx / 2.0
-            while x != p1[0]:
+            while x != scale*p1[0]:
                 self.grad[x, y] = -1
                 err -= dy
                 if err < 0:
@@ -198,7 +199,7 @@ class Segments:
                 x += sx
         else:
             err = dy / 2.0
-            while y != p1[1]:
+            while y != scale*p1[1]:
                 self.grad[x, y] = -1
                 err -= dx
                 if err < 0:
@@ -207,22 +208,30 @@ class Segments:
                 y += sy
         self.grad[x, y] = -1
 
-    def segment2grad(self, interior=False):
-        self.grad = numpy.zeros((self.xmax+1,self.ymax+1),dtype=numpy.int)
+    def segment2grad(self, interior=False, scale = 1, maxsegments = 2**20):
+        self.grad = numpy.zeros((scale*(self.xmax+1),scale*(self.ymax+1)),dtype=numpy.int)
 
         for s in self.segmentList:
             for p in s:
-                self.grad[p[0], p[1]] = -1
+                self.grad[scale*p[0], scale*p[1]] = -1
         s0 = self.segmentList[0]
+        segcount = 0
         for s1 in self.segmentList[1:]:
-            self.bresenhamFillIn(s0[-1], s1[0])
+            self.bresenhamFillIn(s0[-1], s1[0], scale)
             s0 = s1
+            segcount += 1
+            if segcount == maxsegments:
+                return
+
         if interior:
             for s0 in self.segmentList:
                 p0 = s0[0]
                 for p1 in s0[1:]:
-                    self.bresenhamFillIn(p0,p1)
+                    self.bresenhamFillIn(p0,p1,scale)
                     p0 = p1
+                    segcount += 1
+                    if segcount == maxsegments:
+                        return
 
 
 
