@@ -105,7 +105,7 @@ class Segments:
         i = 0
         from array import array
         output_file = open(fname, 'wb')
-        l = [float('NaN')] * (2 * self.max_depth)
+        l = [float('NaN')] * (2 * numpts + 20)
 
         for s in segmentList_simp:
             for p in s:
@@ -127,9 +127,9 @@ class Segments:
         self.segmentList = sL
 
     def pixelscale(self,pt):
-        maxXY = max(self.xmax,self.ymax)//2
-        px = float(pt[0]-self.xmax//2) / maxXY
-        py = float(pt[1]-self.ymax//2) / maxXY
+        maxXY = max(self.xmax,self.ymax)
+        px = 2.0*pt[0]/maxXY - 1.0
+        py = 2.0*pt[1]/maxXY - 1.0
         return px, py
 
     def flipY(self):
@@ -273,7 +273,7 @@ def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
     f2.close()
 
     s.flipY()
-    s.scale(0.5)
+    # s.scale(0.5)
 
     s.binWrite(bin_fn)
 

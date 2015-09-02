@@ -7,6 +7,8 @@ from scipy.misc import *
 from scipy.signal import convolve2d as conv
 import scipy.ndimage as ndi
 from scipy.ndimage import (gaussian_filter, generate_binary_structure, binary_erosion, label)
+from scipy.cluster.vq import kmeans, vq
+
 import numpy
 import Segments
 import Queue as Q
@@ -52,6 +54,12 @@ def rot_mooreI(n, x, y, rx, ry):
         return y,n-1-x
     else:
         return n-1-y,x
+
+def ptlen(a,b):
+        return hypot(a[0]-b[0],a[1]-b[1])
+
+def almost_equal(a,b):
+    return abs(a-b) < 0.00001
 
 class Hilbert:
     """
@@ -129,7 +137,132 @@ class Hilbert:
         seg234.extend(seg1)
         return seg234
 
-    def __init__(self, image_matrix, white=1):
+
+    def twoOpt(self,seg,maxdelta=100):
+        totald = 0
+        for a in xrange(len(seg)-4):
+            a_pt = seg[a]
+            b_pt = seg[a+1]
+            ab_len = ptlen(a_pt,b_pt)
+            for c in xrange(a+2,min(a+maxdelta,len(seg)-2)):
+                c_pt = seg[c]
+                d_pt = seg[c+1]
+                cd_len = ptlen(c_pt,d_pt)
+                delta = ptlen(a_pt,c_pt)+ptlen(b_pt,d_pt)-ab_len-cd_len
+                if delta < -0.01:
+                    aseg = seg[:a+1]
+                    bcseg = seg[a+1:c+1]
+                    bcseg.reverse()
+                    dseg = seg[c+1:]
+                    seg = aseg
+                    seg.extend(bcseg)
+                    seg.extend(dseg)
+
+                    a_pt = seg[a]
+                    b_pt = seg[a+1]
+                    ab_len = ptlen(a_pt,b_pt)
+                    totald += delta
+
+                    #print "2opt",a,c,delta
+
+
+        return totald, seg
+
+
+    def threeOpt(self,seg,maxdelta=10):
+        totald = 0
+        for a in xrange(len(seg)-6):
+            a_pt = seg[a]
+            b_pt = seg[a+1]
+            ab_len = ptlen(a_pt,b_pt)
+            for c in xrange(a+2,min(a+maxdelta,len(seg)-4)):
+                c_pt = seg[c]
+                d_pt = seg[c+1]
+                cd_len = ptlen(c_pt,d_pt)
+                for e in xrange(c+2,min(c+maxdelta,len(seg)-2)):
+                    e_pt = seg[e]
+                    f_pt = seg[e+1]
+                    ef_len = ptlen(e_pt,f_pt)
+                    orig = ab_len + cd_len + ef_len
+                    ac_len = ptlen(a_pt,c_pt)
+                    ad_len = ptlen(a_pt,d_pt)
+                    ae_len = ptlen(a_pt,e_pt)
+                    bd_len = ptlen(b_pt,d_pt)
+                    be_len = ptlen(b_pt,e_pt)
+                    bf_len = ptlen(b_pt,f_pt)
+                    ce_len = ptlen(c_pt,e_pt)
+                    cf_len = ptlen(c_pt,f_pt)
+                    df_len = ptlen(d_pt,f_pt)
+
+                    acbedf = ac_len+be_len+df_len
+                    adebcf = ad_len+be_len+cf_len
+                    adecbf = ad_len+ce_len+bf_len
+                    aedbcf = ae_len+bd_len+cf_len
+
+                    new = min(acbedf,adebcf,adecbf,aedbcf)
+                    if new - orig < -0.01:
+                        aseg = seg[:a+1]
+                        bcseg = seg[a+1:c+1]
+                        deseg = seg[c+1:e+1]
+                        fseg = seg[e+1:]
+                        if acbedf == new:
+                            bcseg.reverse()
+                            deseg.reverse()
+                            seg = aseg
+                            seg.extend(bcseg)
+                            seg.extend(deseg)
+                            seg.extend(fseg)
+                        elif adebcf == new:
+                            seg = aseg
+                            seg.extend(deseg)
+                            seg.extend(bcseg)
+                            seg.extend(fseg)
+                        elif adecbf == new:
+                            seg = aseg
+                            seg.extend(deseg)
+                            bcseg.reverse()
+                            seg.extend(bcseg)
+                            seg.extend(fseg)
+                        else:
+                            seg = aseg
+                            deseg.reverse()
+                            seg.extend(deseg)
+                            seg.extend(bcseg)
+                            seg.extend(fseg)
+
+                        a_pt = seg[a]
+                        b_pt = seg[a+1]
+                        ab_len = ptlen(a_pt,b_pt)
+                        c_pt = seg[c]
+                        d_pt = seg[c+1]
+                        cd_len = ptlen(c_pt,d_pt)
+
+                        totald += (new - orig)
+
+                        #print "3opt",a,c,e,new-orig
+
+        return totald, seg
+
+    def totalLength(self,seg):
+        total = 0.
+        for a in xrange(len(seg)-1):
+            total += ptlen(seg[a],seg[a+1])
+        return total
+
+    def measCentroid(self,mat,levels):
+        pixel = reshape(mat, (mat.shape[0]*mat.shape[1],1))
+        centroids,_ = kmeans(pixel,levels)
+        print centroids
+        self.centroids = sort(centroids,axis=0)
+        print self.centroids
+
+    def quantMatrix(self,mat):
+        pixel = reshape(mat, (mat.shape[0]*mat.shape[1],1))
+        qnt,_ = vq(pixel,self.centroids)
+        self.quant_idx = reshape(qnt,(mat.shape[0],mat.shape[1]))
+        self.imin = self.centroids[self.quant_idx,0]
+
+    def __init__(self, image_matrix, white=1,levels = 4):
         """
 
         :param imname:
@@ -137,13 +270,47 @@ class Hilbert:
         :param thresHigh:
         :param thresLow:
         """
+
+
         self.imin = image_matrix
+
+        # whiten
         self.imin /= white
         self.imin += 255 - (255//white)
+
+        # quantize
+        self.measCentroid(self.imin,levels)
+        self.quantMatrix(self.imin)
+
+        # stipple
         self.stipple()
         self.grad = zeros(shape(self.imin), dtype=numpy.int)
 
         seg = self.hilbertSequence()
+
+        d = self.totalLength(seg)
+
+        for s in xrange(4,20,2):
+            while True:
+                delta, seg = self.twoOpt(seg,maxdelta=s)
+                print delta
+                d2 = self.totalLength(seg)
+                assert almost_equal(delta, d2 - d)
+                d = d2
+                if delta == 0: break
+
+        while True:
+            delta, seg = self.threeOpt(seg)
+            print delta
+            d2 = self.totalLength(seg)
+            assert almost_equal(delta, d2 - d)
+            d = d2
+            if delta == 0: break
+
+        while True:
+            delta, seg = self.twoOpt(seg,maxdelta=40)
+            print delta
+            if delta == 0: break
 
         self.segments = Segments.Segments()
         self.segments.append(seg)
