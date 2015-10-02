@@ -32,6 +32,7 @@ and comparing large time series or large linear maps (like genomic data).
 # THE SOFTWARE.
 ##############################
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.backends.backend_pdf as pltBack
 import matplotlib.lines as lines
@@ -43,6 +44,7 @@ import os
 import sys
 
 colorMaps = [m for m in plt.cm.datad if not m.endswith("_r")]
+
 
 def initOptions(parser):
     parser.add_option('-n', '--level', dest='level', default=6,
@@ -77,7 +79,7 @@ def initOptions(parser):
     parser.add_option('--dpi', dest='dpi', default=300,
                       type='int',
                       help='dots per inch of raster outputs, i.e. if --outFormat is all '
-                      'or png. default=%default')
+                           'or png. default=%default')
     parser.add_option('--outFormat', dest='outFormat', default='pdf',
                       type='string',
                       help='output format [pdf|png|eps|all]. default=%default')
@@ -88,16 +90,15 @@ def initOptions(parser):
     parser.add_option('--moore', dest='moore', default=False, action='store_true', help='draws Moore curve')
 
 
-
 def checkOptions(options, args, parser):
     options.max = 0
     if options.level < 1:
         parser.error('--level must by greater than 0')
     if options.level > 8 and not options.override:
-        parser.error('--level > 8 and --override not engaged. (2^%d)^2 is a big number.' 
+        parser.error('--level > 8 and --override not engaged. (2^%d)^2 is a big number.'
                      % options.level)
     if options.cmap not in colorMaps:
-        parser.error('--cmap %s not a valid option. Pick from %s' 
+        parser.error('--cmap %s not a valid option. Pick from %s'
                      % (options.cmap, ', '.join(colorMaps)))
     if len(args) > 0:
         for a in args:
@@ -106,11 +107,12 @@ def checkOptions(options, args, parser):
     if options.dpi < 72:
         parser.error('--dpi %d less than screen res, 72. Must be >= 72.' % options.dpi)
     if options.outFormat not in ('pdf', 'png', 'eps', 'all'):
-        parser.error('Unrecognized output format: %s. Choose one from: pdf png eps all.' 
+        parser.error('Unrecognized output format: %s. Choose one from: pdf png eps all.'
                      % options.outFormat)
-    if (options.out.endswith('.png') or options.out.endswith('.pdf') or 
-        options.out.endswith('.eps')):
+    if (options.out.endswith('.png') or options.out.endswith('.pdf') or
+            options.out.endswith('.eps')):
         options.out = options.out[:-4]
+
 
 def initImage(width, height, options):
     """
@@ -124,6 +126,7 @@ def initImage(width, height, options):
     fig = plt.figure(figsize=(width, height), dpi=options.dpi, facecolor='w')
     return (fig, pdf)
 
+
 def establishAxis(fig, options):
     """ create axis
     """
@@ -135,12 +138,13 @@ def establishAxis(fig, options):
                        options.axWidth, options.axHeight])
     return ax
 
+
 def writeImage(fig, pdf, options):
     """
     writeImage assumes options contains outFormat and dpi.
     """
     if options.outFormat == 'pdf':
-        fig.savefig(pdf, format = 'pdf')
+        fig.savefig(pdf, format='pdf')
         pdf.close()
     elif options.outFormat == 'png':
         fig.savefig(options.out + '.png', format='png', dpi=options.dpi)
@@ -151,6 +155,7 @@ def writeImage(fig, pdf, options):
         fig.savefig(options.out + '.eps', format='eps')
     elif options.outFormat == 'eps':
         fig.savefig(options.out + '.eps', format='eps')
+
 
 def processFile(filename, options):
     """
@@ -180,19 +185,21 @@ def processFile(filename, options):
         y -= numpy.average(y)
         y /= numpy.std(y)
     for i in xrange(0, len(x)):
-        c, r = d2xy(n, int(round((n**2 - 1) * x[i] / options.max)))
+        c, r = d2xy(n, int(round((n ** 2 - 1) * x[i] / options.max)))
         m[r][c] += y[i]
     return m
+
 
 def drawData(ax, data, options):
     if options.matshow:
         plt.matshow(data, fignum=False, origin='upper', cmap=plt.get_cmap(options.cmap))
     else:
-        data = data[ ::-1,:] # reverse row order
+        data = data[::-1, :]  # reverse row order
         plt.pcolor(data, cmap=plt.get_cmap(options.cmap))
     ax.set_xticks([])
     ax.set_yticks([])
-    
+
+
 ########################################
 # These functions refactored from those available at 
 # wikipedia for Hilbert curves http://en.wikipedia.org/wiki/Hilbert_curve
@@ -201,14 +208,14 @@ def d2xy(n, d, moore=False):
     take a d value in [0, n**2 - 1] and map it to
     an x, y value (e.g. c, r).
     """
-    assert(d <= n**2 - 1)
+    assert (d <= n ** 2 - 1)
     t = d
     x = y = 0
     s = 1
     while (s < n):
         rx = 1 & (t / 2)
         ry = 1 & (t ^ rx)
-        if moore and s*2 >= n:
+        if moore and s * 2 >= n:
             x, y = rot_moore(s, x, y, rx, ry)
         else:
             x, y = rot(s, x, y, rx, ry)
@@ -219,19 +226,21 @@ def d2xy(n, d, moore=False):
         s *= 2
     return x, y
 
+
 def xy2d(n, x, y, moore=False):
     d = 0
-    s = n//2
+    s = n // 2
     while s > 0:
         rx = (x & s) > 0
         ry = (y & s) > 0
         d += s * s * ((3 * rx) ^ ry)
-        if moore and s*2 >= n:
+        if moore and s * 2 >= n:
             x, y = rot_mooreI(s, x, y, rx, ry)
         else:
             x, y = rot(s, x, y, rx, ry)
         s //= 2
     return d
+
 
 def rot(n, x, y, rx, ry):
     """
@@ -244,26 +253,30 @@ def rot(n, x, y, rx, ry):
         return y, x
     return x, y
 
+
 def rot_moore(n, x, y, rx, ry):
     """
     rotate/flip a quadrant appropriately
 
     """
     if rx == 0:
-        return n-1-y,x
+        return n - 1 - y, x
     else:
-        return y,n-1-x
+        return y, n - 1 - x
+
 
 def rot_mooreI(n, x, y, rx, ry):
     if rx == 0:
-        return y,n-1-x
+        return y, n - 1 - x
     else:
-        return n-1-y,x
+        return n - 1 - y, x
+
+
 #
 ########################################
 
 def genericCurve(options):
-    x, y = generateVectors(options.level,options.moore)
+    x, y = generateVectors(options.level, options.moore)
     fig, pdf = initImage(8, 8, options)
     ax = establishAxis(fig, options)
     ax.set_aspect('equal')
@@ -274,6 +287,7 @@ def genericCurve(options):
     ax.set_yticks([])
     plt.box(on=False)
     writeImage(fig, pdf, options)
+
 
 def hilbert(args, options):
     if len(args) > 0:
@@ -287,29 +301,32 @@ def hilbert(args, options):
     drawData(ax, data, options)
     writeImage(fig, pdf, options)
 
-def generateVectors(level,moore):
+
+def generateVectors(level, moore):
     """
     Given a level, this will generate x and y vectors that
     can be used to plot the hilbert curve path for that level.
     Useful for explaining HCs.
     """
     n = (1 << level)
-    x = numpy.zeros(n**2, dtype=numpy.int16)
-    y = numpy.zeros(n**2, dtype=numpy.int16)
-    for i in xrange(0, n**2):
+    x = numpy.zeros(n ** 2, dtype=numpy.int16)
+    y = numpy.zeros(n ** 2, dtype=numpy.int16)
+    for i in xrange(0, n ** 2):
         x[i], y[i] = d2xy(n, i, moore)
-        d = xy2d(n,x[i],y[i], moore)
+        d = xy2d(n, x[i], y[i], moore)
         assert i == d
-        #print i, x[i], y[i]
+        # print i, x[i], y[i]
     return x, -y
+
 
 def generateDemo(options):
     n = 1 << options.level
     m = numpy.zeros((n, n))
-    for i in xrange(0, n**2):
+    for i in xrange(0, n ** 2):
         x, y = d2xy(n, i)
         m[y][x] = i
     return m
+
 
 def main():
     usage = ('usage: %prog --max=MAX --level=LEVEL [options] inputFile\n\n'
@@ -322,11 +339,12 @@ def main():
     initOptions(parser)
     options, args = parser.parse_args()
     checkOptions(options, args, parser)
-    
+
     if len(args) == 0 and not options.demo:
         genericCurve(options)
     else:
         hilbert(args, options)
+
 
 if __name__ == '__main__':
     main()

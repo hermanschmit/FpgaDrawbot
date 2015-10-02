@@ -118,6 +118,7 @@ def main():
 
 
     seg = hilbert(args, options)
+    seg.simplifyScale()
     seg.binWrite(args[0])
 
 if __name__ == '__main__':
