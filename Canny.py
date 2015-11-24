@@ -56,11 +56,12 @@ class Canny:
         self.segments.segmentList = emst2.newSegmentTree  # TODO fix
 
     def addInitialStartPt(self):
-        self.segments.addInitialStartPt(self.grad.shape)
+        self.segments.addInitialStartPt()
 
     def segment2grad(self, interior=False):
         self.segments.segment2grad(interior)
 
+    # TODO; remove?
     def stipple(self, stride=4):
         # probably want to smooth imin
         im = self.imin[:]
@@ -309,11 +310,9 @@ class Canny:
         return -1
 
     def cArrayWrite(self, fname):
-        self.segments.simplifyScale()
         self.segments.cArrayWrite(fname)
 
     def binWrite(self, fname):
-        self.segments.simplifyScale()
         self.segments.binWrite(fname)
 
     def concatSegments(self):

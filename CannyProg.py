@@ -18,12 +18,13 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     print len(canny.segments.segmentList)
     canny.concatSegments()
     print len(canny.segments.segmentList)
+    canny.segments.simplify()
     canny.segment2grad(interior=True)
-    #canny.cArrayWrite(bin_fn)
-    canny.binWrite(bin_fn)
     canny.renderGrad()
     im = canny.segments.grad
     misc.imsave(ofile_name1, im)
+    canny.segments.scaleBin()
+    canny.binWrite(bin_fn)
 
 
 if __name__ == "__main__":

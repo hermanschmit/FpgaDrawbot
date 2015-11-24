@@ -92,7 +92,22 @@ class TestEuclidMST_ptsU(EuclidMST_instU):
         self.euclidmst.treetrav_nonrec(tree)
         self.assertAlmostEqual(len(self.euclidmst.nodeTrav), 9)
 
+class EuclidMST_inst100(TestCase):
+    def setUp(self):
+        l = []
+        for x in xrange(0, 100):
+            l.append([[x, 0], [x, 1]])
+        segList = np.array(l)
+        self.euclidmst = EuclidMST(segList)
 
+
+class TestEuclidMST_100(EuclidMST_inst100):
+    def runTest(self):
+        # Shouldn't crash
+        self.euclidmst.segmentOrdering()
+
+
+'''
 class EuclidMST_instDEEP(TestCase):
     def setUp(self):
         l = []
@@ -106,3 +121,4 @@ class TestEuclidMST_deep(EuclidMST_instDEEP):
     def runTest(self):
         # Shouldn't crash
         self.euclidmst.segmentOrdering()
+'''

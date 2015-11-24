@@ -10,10 +10,20 @@ def _hyp(ax, ay, bx, by):
     ydiff = ay - by
     return math.hypot(xdiff, ydiff)
 
-def _colinear(p0, p1, p2):
-    x1, y1 = p1[0] - p0[0], p1[1] - p0[1]
-    x2, y2 = p2[0] - p0[0], p2[1] - p0[1]
-    return abs(x1 * y2 - x2 * y1) < 1e-5
+def _is_on(a, b, c, tol=1e-5):
+    "Return true iff point c intersects the line segment from a to b."
+    # (or the degenerate case that all 3 points are coincident)
+    return (_collinear(a, b, c, tol)
+            and (_within(a[0], c[0], b[0]) if a[0] != b[0] else
+                 _within(a[1], c[1], b[1])))
+
+def _collinear(a, b, c, tol=1e-5):
+    "Return true iff a, b, and c all lie on the same line."
+    return abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) < tol
+
+def _within(p, q, r):
+    "Return true iff q is between p and r (inclusive)."
+    return p <= q <= r or r <= q <= p
 
 def _simplifysegment(s):
     if len(s) < 3:
@@ -23,14 +33,14 @@ def _simplifysegment(s):
     p1 = s[1]
     new_s.append(p0)
     for p2 in s[2:]:
-        if _colinear(p0, p1, p2):
+        if _is_on(p0, p2, p1):
             p1 = p2
         else:
             new_s.append(p1)
             p0 = p1
             p1 = p2
     new_s.append(p2)
-    return new_s
+    return numpy.array(new_s)
 
 class Segments:
 
@@ -41,41 +51,32 @@ class Segments:
         self.xmin = sys.maxsize
         self.ymin = sys.maxsize
         self.max_depth = max_depth
+        self.numpts = 0
 
-    def addInitialStartPt(self, shape):
-        if shape[0] < self.xmax:
-            print "Uhoh"
-        else:
-            self.xmax = shape[0]
-
-        if shape[1] < self.ymax:
-            print "Uhoh"
-        else:
-            self.ymax = shape[1]
-
-        self.segmentList.insert(0, [[self.xmax // 2, self.ymax // 2]])
+    def addInitialStartPt(self):
+        self.segmentList.insert(0, [[(self.xmax + self.xmin) // 2, (self.ymax + self.ymax) // 2]])
 
     def append(self, segment):
         self.segmentList.append(segment)
-        # update xmax, ymax
         for pt in segment:
             self.xmax = max(pt[0], self.xmax)
             self.ymax = max(pt[1], self.ymax)
             self.xmin = min(pt[0], self.xmin)
             self.ymin = min(pt[1], self.ymin)
+            self.numpts += 1
 
-    def simplifyScale(self):
+    def simplify(self):
+        segmentSimp = []
         numpts = 0
-        self.segmentSimp = []
         for s in self.segmentList:
             ns = _simplifysegment(s)
-            nss = [self.pixelscale(p) for p in ns]
-            self.segmentSimp.append(nss)
+            segmentSimp.append(ns)
             numpts += len(ns)
-        self.numpts = numpts
         if numpts-1 >= self.max_depth:
             print "Number of points exceeds limit: "+repr(numpts)
             raise ValueError
+        self.numpts = numpts
+        self.segmentList = numpy.array(segmentSimp)
 
     def cArrayWrite(self, fname):
         f = open(fname, 'w')
@@ -97,7 +98,7 @@ class Segments:
         output_file = open(fname, 'wb')
         l = [float('NaN')] * (2 * self.numpts + 20)
         i = 0
-        for s in self.segmentSimp:
+        for s in self.segmentList:
             for p in s:
                 #x, y = self.pixelscale(p)
                 l[i] = p[1]
@@ -113,61 +114,39 @@ class Segments:
         s_prev = self.segmentList[0]
         for s_new in self.segmentList[1:]:
             s_prev = numpy.append(s_prev, s_new, axis=0)
+        self.numpts = len(s_prev)
         sL.append(s_prev)
         self.segmentList = sL
 
-    def pixelscale(self, pt):
-        maxXY = max(self.xmax, self.ymax)
-        px = 2.0*pt[0]/maxXY - 1.0
-        py = 2.0*pt[1]/maxXY - 1.0
-        return px, py
-
     def flipY(self):
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[self.xmax-p[0], p[1]] for p in seg]
+            self.segmentList[i] = [[self.xmax-p[0]+self.xmin, p[1]] for p in seg]
 
     def flipX(self):
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[p[0], self.ymax-p[1]] for p in seg]
-
-    def scale_point(self, pt, ratio):
-        x = int((pt[0] - (self.xmax-self.xmin)//2)*ratio)+(self.xmax-self.xmin)//2
-        y = int((pt[1] - (self.ymax-self.ymin)//2)*ratio)+(self.ymax-self.ymin)//2
-        return [x, y]
+            self.segmentList[i] = [[p[0], self.ymax-p[1]+self.ymin] for p in seg]
 
     def scale(self, ratio):
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [self.scale_point(p, ratio) for p in seg]
+            self.segmentList[i] = [[ratio*p[0],ratio*p[1]] for p in seg]
+        self.xmax *= ratio
+        self.ymax *= ratio
+        self.xmin *= ratio
+        self.ymin *= ratio
 
-    def pruneLonelySegments(self, ratio=100.):
-        newSegmentList = list()
-        newSegmentList.append(self.segmentList[0])
+    def offset(self,(dx,dy)):
+        for i, seg in enumerate(self.segmentList):
+            self.segmentList[i] = [[dx+p[0],dy*p[1]] for p in seg]
+        self.xmax += dx
+        self.ymax += dy
+        self.xmin += dx
+        self.ymin += dy
 
-        if len(self.segmentList) < 3:
-            return
-        s0 = self.segmentList[0]
-        s1 = self.segmentList[1]
-        for i in xrange(2, len(self.segmentList)):
-            s2 = self.segmentList[i]
-            drawnA = _hyp(*(s0[-1] + s1[0]))
-            drawnB = _hyp(*(s1[-1] + s2[0]))
-            segment = max(_hyp(*(s1[0] + s1[-1])), len(s1))
-            limit = segment * ratio
-            if drawnA < limit or drawnB < limit:
-                newSegmentList.append(s1)
-                s0 = s1
-                s1 = s2
-            else:
-                s1 = s2
-
-        # add the last?
-        last_2 = self.segmentList[-2]
-        last = self.segmentList[-1]
-        drawn = _hyp(*(last_2[-1] + last[0]))
-        limit = ratio * _hyp(*(last[0] + last[-1]))
-        if drawn < limit:
-            newSegmentList.append(self.segmentList[-1])
-        self.segmentList = newSegmentList[:]
+    def scaleBin(self):
+        self.offset((-self.xmin,-self.ymin))
+        scale = 2.0/max(self.xmax,self.ymax)
+        self.scale(scale)
+        self.offset((-self.xmax/2,-self.ymax/2))
 
     def bresenhamFillIn(self, p0, p1, scale=1):
         """
@@ -201,7 +180,6 @@ class Segments:
 
     def segment2grad(self, interior=False, scale=1, maxsegments=2**20):
         self.grad = numpy.zeros((scale*(self.xmax+1), scale*(self.ymax+1)), dtype=numpy.int)
-
         for s in self.segmentList:
             for p in s:
                 self.grad[scale*p[0], scale*p[1]] = -1
