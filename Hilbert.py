@@ -320,11 +320,9 @@ class Hilbert:
         self.grad[x, y] = 0
 
     def cArrayWrite(self, fname):
-        self.segments.simplifyScale()
         self.segments.cArrayWrite(fname)
 
     def binWrite(self, fname):
-        self.segments.simplifyScale()
         self.segments.binWrite(fname)
 
     def concatSegments(self):

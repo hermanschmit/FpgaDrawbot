@@ -82,7 +82,7 @@ class Segments:
         f = open(fname, 'w')
         f.write("float diag["+repr(self.max_depth)+"][2] = {\n")
         i = 0
-        for s in self.segmentSimp:
+        for s in self.segmentList:
             for p in s:
                 # x, y = self.pixelscale(p)
                 f.write("       {"+repr(p[1])+", "+repr(p[0])+"},\n")
