@@ -199,13 +199,6 @@ class Canny:
 
         self.stippleSegmentList = []
 
-    def renderGrad(self):
-        """
-        Convert grad == -1 to pixels
-        """
-        x, y = where(self.grad == -1)
-        self.segments.grad[:, :] = 255
-        self.segments.grad[x, y] = 0
 
     @staticmethod
     def createFilter(rawfilter):

@@ -161,7 +161,7 @@ class Segments:
         if dx > dy:
             err = dx / 2.0
             while x != scale*p1[0]:
-                self.grad[x, y] = -1
+                self.grad[round(x), round(y)] = -1
                 err -= dy
                 if err < 0:
                     y += sy
@@ -170,19 +170,19 @@ class Segments:
         else:
             err = dy / 2.0
             while y != scale*p1[1]:
-                self.grad[x, y] = -1
+                self.grad[round(x), round(y)] = -1
                 err -= dx
                 if err < 0:
                     x += sx
                     err += dy
                 y += sy
-        self.grad[x, y] = -1
+        self.grad[round(x), round(y)] = -1
 
     def segment2grad(self, interior=False, scale=1, maxsegments=2**20):
         self.grad = numpy.zeros((scale*(self.xmax+1), scale*(self.ymax+1)), dtype=numpy.int)
         for s in self.segmentList:
             for p in s:
-                self.grad[scale*p[0], scale*p[1]] = -1
+                self.grad[round(scale*p[0]), round(scale*p[1])] = -1
         s0 = self.segmentList[0]
         segcount = 0
         for s1 in self.segmentList[1:]:
@@ -201,6 +201,14 @@ class Segments:
                     segcount += 1
                     if segcount == maxsegments:
                         return
+
+    def renderGrad(self):
+        """
+        Convert grad == -1 to pixels
+        """
+        x, y = numpy.where(self.grad == -1)
+        self.grad[:, :] = 255
+        self.grad[x, y] = 0
 
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
