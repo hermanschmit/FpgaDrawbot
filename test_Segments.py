@@ -60,6 +60,9 @@ class SegmentsInst0Test2(SegmentsInst0):
         self.seg.segment2grad(interior=True)
         i = numpy.nonzero(self.seg.grad)
         self.assertEqual(len(i[0]),7) # simplify should have no impact if interior is drawn
+        self.seg.scaleBin()
+        self.assertTrue(self.seg.xmax==1.0 or self.seg.ymax==1.0)
+        self.assertTrue(self.seg.ymin==-1.0 or self.seg.xmin==-1.0)
 
 class SegmentsInst1(TestCase):
     def setUp(self):
@@ -77,6 +80,9 @@ class SegmentsInst1Test1(SegmentsInst1):
         self.seg.segment2grad(interior=True)
         i = numpy.nonzero(self.seg.grad)
         self.assertEqual(len(i[0]),7)
+        self.seg.scaleBin()
+        self.assertTrue(self.seg.xmax==1.0 or self.seg.ymax==1.0)
+        self.assertTrue(self.seg.ymin==-1.0 or self.seg.xmin==-1.0)
 
 class SegmentsInst2(TestCase):
     def setUp(self):
@@ -95,3 +101,116 @@ class SegmentsInst2Test0(SegmentsInst2):
         self.seg.segment2grad(interior=True)
         i = numpy.nonzero(self.seg.grad)
         self.assertEqual(len(i[0]),7) # simplify should have no impact if interior is drawn
+        self.seg.scaleBin()
+        self.assertTrue(self.seg.xmax==1.0 or self.seg.ymax==1.0)
+        self.assertTrue(self.seg.ymin==-1.0 or self.seg.xmin==-1.0)
+
+class SegmentsInst2Test1(SegmentsInst2):
+    def runTest(self):
+        self.seg.offset((3.0,-0.5))
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+        l = self.seg.binList()
+        self.assertTrue(max(l)==self.seg.xmax or max(l)==self.seg.ymax)
+        self.assertTrue(min(l)==self.seg.xmin or min(l)==self.seg.ymin)
+
+
+class SegmentsInst2Test2(SegmentsInst2):
+    def runTest(self):
+        self.seg.scale(0.15)
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test3(SegmentsInst2):
+    def runTest(self):
+        self.seg.scale(3.2)
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test4(SegmentsInst2):
+    def runTest(self):
+        self.seg.scaleBin()
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test5(SegmentsInst2):
+    def runTest(self):
+        self.seg.simplify()
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test6(SegmentsInst2):
+    def runTest(self):
+        self.seg.simplify()
+        self.seg.offset((0.2,-0.4))
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test7(SegmentsInst2):
+    def runTest(self):
+        self.seg.simplify()
+        self.seg.scale(0.2)
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test8(SegmentsInst2):
+    def runTest(self):
+        self.seg.simplify()
+        self.seg.scaleBin()
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+
+class SegmentsInst2Test9(SegmentsInst2):
+    def runTest(self):
+        self.seg.concatSegments()
+        self.seg.scaleBin()
+        seg2 = Segments()
+        for s in self.seg.segmentList:
+            seg2.append(s)
+        self.assertEqual(self.seg.xmax,seg2.xmax)
+        self.assertEqual(self.seg.ymax,seg2.ymax)
+        self.assertEqual(self.seg.xmin,seg2.xmin)
+        self.assertEqual(self.seg.ymin,seg2.ymin)
+        l = self.seg.binList()
+        self.assertLessEqual(max(l),1.0)
+        self.assertGreaterEqual(min(l),-1.0)

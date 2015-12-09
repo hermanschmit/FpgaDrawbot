@@ -93,19 +93,20 @@ class Segments:
         f.write(" };\n")
         f.close()
 
-    def binWrite(self, fname):
-        from array import array
-        output_file = open(fname, 'wb')
+    def binList(self):
         l = [float('NaN')] * (2 * self.numpts + 20)
         i = 0
         for s in self.segmentList:
             for p in s:
-                #x, y = self.pixelscale(p)
                 l[i] = p[1]
                 l[i+1] = p[0]
                 i += 2
+        return l
 
-        float_array = array('f', l)
+    def binWrite(self, fname):
+        from array import array
+        output_file = open(fname, 'wb')
+        float_array = array('f',self.binList())
         float_array.tofile(output_file)
         output_file.close()
 
@@ -116,7 +117,7 @@ class Segments:
             s_prev = numpy.append(s_prev, s_new, axis=0)
         self.numpts = len(s_prev)
         sL.append(s_prev)
-        self.segmentList = sL
+        self.segmentList = numpy.array(sL)
 
     def flipY(self):
         for i, seg in enumerate(self.segmentList):
@@ -127,16 +128,22 @@ class Segments:
             self.segmentList[i] = [[p[0], self.ymax-p[1]+self.ymin] for p in seg]
 
     def scale(self, ratio):
+        sL = []
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[ratio*p[0],ratio*p[1]] for p in seg]
+            l = [[ratio*p[0],ratio*p[1]] for p in seg]
+            sL.append(l)
+        self.segmentList = numpy.array(sL)
         self.xmax *= ratio
         self.ymax *= ratio
         self.xmin *= ratio
         self.ymin *= ratio
 
     def offset(self,(dx,dy)):
+        sL = []
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[dx+p[0],dy*p[1]] for p in seg]
+            l = [[dx+float(p[0]),dy+float(p[1])] for p in seg]
+            sL.append(l)
+        self.segmentList = numpy.array(sL)
         self.xmax += dx
         self.ymax += dy
         self.xmin += dx
