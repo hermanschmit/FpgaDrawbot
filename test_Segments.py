@@ -214,3 +214,51 @@ class SegmentsInst2Test9(SegmentsInst2):
         l = self.seg.binList()
         self.assertLessEqual(max(l),1.0)
         self.assertGreaterEqual(min(l),-1.0)
+
+''' TSP testing '''
+
+class SegmentsTSP0(TestCase):
+    def setUp(self):
+        segList1 = [(0., 1.), (0., 2.), (0., 3.), (0., 4.), (0., 5.)]
+        self.seg = Segments()
+        self.seg.append(segList1)
+
+class SegmentsTSP0Test0(SegmentsTSP0):
+    def runTest(self):
+        self.seg.concatSegments()
+        delta = self.seg.threeOptLoop()
+        self.assertEqual(delta,0.)
+        l = self.seg.binList()
+        self.assertEqual(max(l),5.0)
+        self.assertEqual(min(l),0.0)
+
+class SegmentsTSP1(TestCase):
+    # In this testcase, 0,4 is last, so it cannot be optimized fully.
+    def setUp(self):
+        segList1 = [(0., 1.), (0., 2.), (0., 6.), (0., 5.), (0., 3.), (0., 4.)]
+        self.seg = Segments()
+        self.seg.append(segList1)
+
+class SegmentsTSP1Test0(SegmentsTSP1):
+    def runTest(self):
+        self.seg.concatSegments()
+        delta = self.seg.threeOptLoop()
+        self.assertEqual(delta,-2.0)
+        l = self.seg.binList()
+        self.assertEqual(max(l),6.0)
+        self.assertEqual(min(l),0.0)
+
+class SegmentsTSP2(TestCase):
+    def setUp(self):
+        segList1 = [(0., 1.), (0., 2.), (0., 6.), (0., 5.), (0., 3.), (0., 4.), (0., 7.)]
+        self.seg = Segments()
+        self.seg.append(segList1)
+
+class SegmentsTSP2Test0(SegmentsTSP2):
+    def runTest(self):
+        self.seg.concatSegments()
+        delta = self.seg.threeOptLoop()
+        self.assertEqual(delta,-6.0)
+        l = self.seg.binList()
+        self.assertEqual(max(l),7.0)
+        self.assertEqual(min(l),0.0)

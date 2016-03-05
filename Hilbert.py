@@ -7,6 +7,7 @@ import Queue as Q
 import numpy
 from scipy import *
 from scipy.cluster.vq import kmeans, vq
+from scipy import misc
 
 import Segments
 
@@ -246,13 +247,12 @@ class Hilbert:
         pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
         centroids, _ = kmeans(pixel, levels)
         self.centroids = sort(centroids, axis=0)
-        print self.centroids
 
-    def quantMatrix(self, mat, augmentWhite=True):
+    def quantMatrix(self, mat, newQuant, augmentWhite=True):
         pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
         qnt, _ = vq(pixel, self.centroids)
         self.quant_idx = reshape(qnt, (mat.shape[0], mat.shape[1]))
-        self.imin = self.centroids[self.quant_idx, 0]
+        self.imin = newQuant[self.quant_idx, 0]
         if augmentWhite:
             x, y = where(self.imin == self.centroids[-1])
             self.imin[x, y] = 255
@@ -273,43 +273,50 @@ class Hilbert:
 
         # quantize
         self.measCentroid(self.imin, levels)
-        self.quantMatrix(self.imin)
+        print self.centroids
+        nq = numpy.array([[0],[85],[170],[255]])
+        self.quantMatrix(self.imin,nq)
+
+        misc.imsave("test.png", self.imin)
 
         # stipple
         self.stipple()
         self.grad = zeros(shape(self.imin), dtype=numpy.int)
+        misc.imsave("test2.png", self.stipple_im)
 
         seg = self.hilbertSequence()
 
         d = self.totalLength(seg)
 
-        for s in xrange(4, 20, 2):
+        self.segments = Segments.Segments()
+        self.segments.append(seg)
+
+        # for s in xrange(4, 20, 2):
+        #     while True:
+        #         delta, seg = self.twoOpt(seg, maxdelta=s)
+        #         print delta
+        #         d2 = self.totalLength(seg)
+        #         assert almost_equal(delta, d2 - d)
+        #         d = d2
+        #         if delta == 0:
+        #             break
+
+        for s in xrange(2,4,2):
             while True:
-                delta, seg = self.twoOpt(seg, maxdelta=s)
+                delta = self.segments.threeOptLoop(maxdelta=s)
                 print delta
-                d2 = self.totalLength(seg)
+                d2 = self.totalLength(self.segments.segmentList[0])
                 assert almost_equal(delta, d2 - d)
                 d = d2
                 if delta == 0:
                     break
 
-        while True:
-            delta, seg = self.threeOpt(seg)
-            print delta
-            d2 = self.totalLength(seg)
-            assert almost_equal(delta, d2 - d)
-            d = d2
-            if delta == 0:
-                break
+        # while True:
+        #     delta, seg = self.twoOpt(seg, maxdelta=40)
+        #     print delta
+        #     if delta == 0:
+        #         break
 
-        while True:
-            delta, seg = self.twoOpt(seg, maxdelta=40)
-            print delta
-            if delta == 0:
-                break
-
-        self.segments = Segments.Segments()
-        self.segments.append(seg)
 
     def renderGrad(self):
         """

@@ -3,7 +3,7 @@ __author__ = 'herman'
 import math
 import numpy
 import sys
-
+from numba import jit
 
 def _hyp(ax, ay, bx, by):
     xdiff = ax - bx
@@ -41,6 +41,8 @@ def _simplifysegment(s):
             p1 = p2
     new_s.append(p2)
     return numpy.array(new_s)
+
+
 
 class Segments:
 
@@ -216,6 +218,93 @@ class Segments:
         x, y = numpy.where(self.grad == -1)
         self.grad[:, :] = 255
         self.grad[x, y] = 0
+
+    @staticmethod
+    @jit
+    def ptlen(a, b):
+        return math.hypot(a[0] - b[0], a[1] - b[1])
+
+    def threeOpt(self, a, c, e):
+        seg0 = self.segmentList[0]
+        a_pt = seg0[a]
+        b_pt = seg0[a + 1]
+        c_pt = seg0[c]
+        d_pt = seg0[c + 1]
+        e_pt = seg0[e]
+        f_pt = seg0[e + 1]
+        ab_len = self.ptlen(a_pt, b_pt)
+        cd_len = self.ptlen(c_pt, d_pt)
+        ef_len = self.ptlen(e_pt, f_pt)
+        ac_len = self.ptlen(a_pt, c_pt)
+        ad_len = self.ptlen(a_pt, d_pt)
+        ae_len = self.ptlen(a_pt, e_pt)
+        bd_len = self.ptlen(b_pt, d_pt)
+        be_len = self.ptlen(b_pt, e_pt)
+        bf_len = self.ptlen(b_pt, f_pt)
+        ce_len = self.ptlen(c_pt, e_pt)
+        cf_len = self.ptlen(c_pt, f_pt)
+        df_len = self.ptlen(d_pt, f_pt)
+
+        orig = ab_len + cd_len + ef_len
+
+        abcedf = ab_len + ce_len + df_len   # 2-opt
+        acbdef = ac_len + bd_len + ef_len   # 2-opt
+        acbedf = ac_len + be_len + df_len
+        adebcf = ad_len + be_len + cf_len
+        adecbf = ad_len + ce_len + bf_len
+        aedbcf = ae_len + bd_len + cf_len
+
+        new = min(abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf)
+        if new - orig < -0.01:
+            aseg = seg0[:a + 1]
+            bcseg = seg0[a + 1:c + 1]
+            deseg = seg0[c + 1:e + 1]
+            fseg = seg0[e + 1:]
+            if abcedf == new:
+                seg0 = numpy.concatenate((aseg,
+                                          bcseg,
+                                          numpy.flipud(deseg),
+                                          fseg))
+            elif acbdef == new:
+                seg0 = numpy.concatenate((aseg,
+                                          numpy.flipud(bcseg),
+                                          deseg,
+                                          fseg))
+            elif acbedf == new:
+                seg0 = numpy.concatenate((aseg,
+                                          numpy.flipud(bcseg),
+                                          numpy.flipud(deseg),
+                                          fseg))
+            elif adebcf == new:
+                seg0 = numpy.concatenate((aseg,
+                                          deseg,
+                                          bcseg,
+                                          fseg))
+            elif adecbf == new:
+                seg0 = numpy.concatenate((aseg,
+                                          deseg,
+                                          numpy.flipud(bcseg),
+                                          fseg))
+            else:
+                seg0 = numpy.concatenate((aseg,
+                                          numpy.flipud(deseg),
+                                          bcseg,
+                                          fseg))
+            self.segmentList[0] = seg0
+            return new - orig
+        else:
+            return 0
+
+    def threeOptLoop(self, maxdelta=10):
+        totald = 0
+        assert len(self.segmentList) == 1
+        seg0 = self.segmentList[0]
+        for a in xrange(len(seg0) - 5):
+            for c in xrange(a + 1, min(a + maxdelta, len(seg0) - 3)):
+               for e in xrange(c + 1, min(c + maxdelta, len(seg0) - 1)):
+                   totald += self.threeOpt(a, c, e)
+        return totald
+
 
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
