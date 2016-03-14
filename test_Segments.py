@@ -262,3 +262,52 @@ class SegmentsTSP2Test0(SegmentsTSP2):
         l = self.seg.binList()
         self.assertEqual(max(l),7.0)
         self.assertEqual(min(l),0.0)
+
+''' distABtoP Testing '''
+
+class SegmentsDist0(TestCase):
+    def setUp(self):
+        segList1 = [(0., 1.), (0., 2.), (0., 3.), (0., 4.), (0., 5.)]
+        self.seg = Segments()
+        self.seg.append(segList1)
+
+class SegmentsDist0Test0(SegmentsDist0):
+    def runTest(self):
+        d1,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][1],
+                                self.seg.segmentList[0][2])
+        self.assertEqual(d1, 1)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,2.)
+        d2,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][1],
+                                self.seg.segmentList[0][3])
+        self.assertEqual(d2, 2)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,2.)
+        d3,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][1],
+                                (1., 1.))
+        self.assertEqual(d3, 1)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,1.)
+        d4,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][2],
+                                (1., 1.))
+        self.assertEqual(d4, 1)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,1.)
+        d5,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][2],
+                                (-5., 2.))
+        self.assertEqual(d5, 5)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,2.)
+        d6,(x,y) = self.seg.distABtoP(self.seg.segmentList[0][0],
+                                self.seg.segmentList[0][2],
+                                (4., 6.))
+        self.assertEqual(d6, 5)
+        self.assertEqual(x,0.)
+        self.assertEqual(y,3.)
+
+

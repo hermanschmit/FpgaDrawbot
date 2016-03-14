@@ -42,6 +42,10 @@ def _simplifysegment(s):
     new_s.append(p2)
     return numpy.array(new_s)
 
+@jit
+def _ptlen_local(a,b):
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
 
 
 class Segments:
@@ -224,6 +228,35 @@ class Segments:
     def ptlen(a, b):
         return math.hypot(a[0] - b[0], a[1] - b[1])
 
+    @staticmethod
+    @jit
+    def distanceCombinations(a_pt,b_pt,c_pt,d_pt,e_pt,f_pt):
+        """
+        Partitioned for JIT
+        """
+        ab_len = _ptlen_local(a_pt, b_pt)
+        cd_len = _ptlen_local(c_pt, d_pt)
+        ef_len = _ptlen_local(e_pt, f_pt)
+        ac_len = _ptlen_local(a_pt, c_pt)
+        ad_len = _ptlen_local(a_pt, d_pt)
+        ae_len = _ptlen_local(a_pt, e_pt)
+        bd_len = _ptlen_local(b_pt, d_pt)
+        be_len = _ptlen_local(b_pt, e_pt)
+        bf_len = _ptlen_local(b_pt, f_pt)
+        ce_len = _ptlen_local(c_pt, e_pt)
+        cf_len = _ptlen_local(c_pt, f_pt)
+        df_len = _ptlen_local(d_pt, f_pt)
+
+        abcdef = ab_len + cd_len + ef_len
+        abcedf = ab_len + ce_len + df_len   # 2-opt
+        acbdef = ac_len + bd_len + ef_len   # 2-opt
+        acbedf = ac_len + be_len + df_len
+        adebcf = ad_len + be_len + cf_len
+        adecbf = ad_len + ce_len + bf_len
+        aedbcf = ae_len + bd_len + cf_len
+
+        return abcdef,abcedf,acbdef,acbedf,adebcf,adecbf,aedbcf
+
     def threeOpt(self, a, c, e):
         seg0 = self.segmentList[0]
         a_pt = seg0[a]
@@ -232,27 +265,9 @@ class Segments:
         d_pt = seg0[c + 1]
         e_pt = seg0[e]
         f_pt = seg0[e + 1]
-        ab_len = self.ptlen(a_pt, b_pt)
-        cd_len = self.ptlen(c_pt, d_pt)
-        ef_len = self.ptlen(e_pt, f_pt)
-        ac_len = self.ptlen(a_pt, c_pt)
-        ad_len = self.ptlen(a_pt, d_pt)
-        ae_len = self.ptlen(a_pt, e_pt)
-        bd_len = self.ptlen(b_pt, d_pt)
-        be_len = self.ptlen(b_pt, e_pt)
-        bf_len = self.ptlen(b_pt, f_pt)
-        ce_len = self.ptlen(c_pt, e_pt)
-        cf_len = self.ptlen(c_pt, f_pt)
-        df_len = self.ptlen(d_pt, f_pt)
 
-        orig = ab_len + cd_len + ef_len
-
-        abcedf = ab_len + ce_len + df_len   # 2-opt
-        acbdef = ac_len + bd_len + ef_len   # 2-opt
-        acbedf = ac_len + be_len + df_len
-        adebcf = ad_len + be_len + cf_len
-        adecbf = ad_len + ce_len + bf_len
-        aedbcf = ae_len + bd_len + cf_len
+        (orig, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf) = \
+            self.distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt)
 
         new = min(abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf)
         if new - orig < -0.01:
@@ -299,12 +314,70 @@ class Segments:
         totald = 0
         assert len(self.segmentList) == 1
         seg0 = self.segmentList[0]
-        for a in xrange(len(seg0) - 5):
-            for c in xrange(a + 1, min(a + maxdelta, len(seg0) - 3)):
+        for a in xrange(len(seg0) - 3):
+            for c in xrange(a + 1, min(a + maxdelta, len(seg0) - 2)):
                for e in xrange(c + 1, min(c + maxdelta, len(seg0) - 1)):
                    totald += self.threeOpt(a, c, e)
         return totald
 
+    def threeOptLongs(self, threshold=0.05):
+        assert len(self.segmentList) == 1
+        seg0 = self.segmentList[0]
+        actual_threshold = threshold * math.hypot(self.xmax-self.xmin,
+                                                  self.ymax-self.ymin)
+        totald = 0.
+        for c in xrange(len(seg0) - 2):
+            c_pt = seg0[c]
+            d_pt = seg0[c + 1]
+            if _ptlen_local(c_pt,d_pt) < actual_threshold:
+                continue
+            print c, c_pt, d_pt
+            min_pt = c_pt - 0.01*(d_pt - c_pt)
+            max_pt = d_pt + 0.01*(d_pt - c_pt)
+            print min_pt, max_pt
+            for a in xrange(0, c-1):
+                a_pt = seg0[a]
+                if (a_pt < min_pt).any() or (a_pt > max_pt).any():
+                    continue
+                for e in xrange(c + 1, len(seg0) - 1):
+                    e_pt = seg0[e]
+                    if (e_pt < min_pt).any() or (e_pt > max_pt).any():
+                        continue
+                    delta = self.threeOpt(a, c, e)
+                    assert delta <= 0.
+                    totald += delta
+                    if delta < 0.0:
+                        break
+            print totald
+        return totald
+
+    @staticmethod
+    def distABtoP(a_pt, b_pt, p_pt):
+
+        seg_x = b_pt[0] - a_pt[0]
+        seg_y = b_pt[1] - a_pt[1]
+
+        seglen_sqrd = seg_x * seg_x + seg_y * seg_y
+
+        u = ((p_pt[0] - a_pt[0]) * seg_x + (p_pt[1] - a_pt[1]) * seg_y) / float(seglen_sqrd)
+
+        if u > 1:
+            u = 1
+        elif u < 0:
+            u = 0
+
+        x = a_pt[0] + u * seg_x
+        y = a_pt[1] + u * seg_y
+
+        dx = x - p_pt[0]
+        dy = y - p_pt[1]
+
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        return dist, (x,y)
+
+
+        #   def force_AR(self,x):
 
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):

@@ -62,7 +62,7 @@ def ptlen(a, b):
 
 
 def almost_equal(a, b):
-    return abs(a - b) < 0.00001
+    return abs(a - b) < 0.001
 
 
 class Hilbert:
@@ -286,8 +286,6 @@ class Hilbert:
 
         seg = self.hilbertSequence()
 
-        d = self.totalLength(seg)
-
         self.segments = Segments.Segments()
         self.segments.append(seg)
 
@@ -301,7 +299,25 @@ class Hilbert:
         #         if delta == 0:
         #             break
 
+        d = self.totalLength(self.segments.segmentList[0])
         for s in xrange(2,4,2):
+            while True:
+                delta = self.segments.threeOptLoop(maxdelta=s)
+                print delta
+                d2 = self.totalLength(self.segments.segmentList[0])
+                assert almost_equal(delta, d2 - d)
+                d = d2
+                if delta == 0:
+                    break
+
+        while True:
+            delta = self.segments.threeOptLongs()
+            print delta
+            if delta == 0:
+                break
+
+        d = self.totalLength(self.segments.segmentList[0])
+        for s in xrange(2,8,2):
             while True:
                 delta = self.segments.threeOptLoop(maxdelta=s)
                 print delta
