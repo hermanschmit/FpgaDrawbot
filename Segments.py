@@ -352,6 +352,7 @@ class Segments:
         return totald
 
     @staticmethod
+    @jit
     def distABtoP(a_pt, b_pt, p_pt):
 
         seg_x = b_pt[0] - a_pt[0]
@@ -376,8 +377,8 @@ class Segments:
 
         return dist, (x,y)
 
-
-        #   def force_AR(self,x):
+    def snapBoundary(self,segment):
+        pass
 
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
