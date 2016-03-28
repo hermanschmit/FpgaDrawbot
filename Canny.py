@@ -69,8 +69,8 @@ class Canny:
         A, B, G, S = [7.0 / 16.0, 3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0]
         (xdim, ydim) = self.imin.shape
 
-        for y in xrange(0, ydim - 2 - stride, stride):
-            for x in xrange(0, xdim - 2 - stride, stride):
+        for y in range(0, ydim - 2 - stride, stride):
+            for x in range(0, xdim - 2 - stride, stride):
                 oldpixel = im[x, y]
                 if oldpixel > 128:
                     newpixel = 255
@@ -89,8 +89,8 @@ class Canny:
                     im[x + stride, y + stride] += (S * quant_error)
 
         self.stippleSegmentList = []
-        for xi in xrange(0, xdim - 2 - stride, stride):
-            for yi in xrange(0, ydim - 2 - stride, stride):
+        for xi in range(0, xdim - 2 - stride, stride):
+            for yi in range(0, ydim - 2 - stride, stride):
                 if im[xi, yi] < 128 and self.grad[xi, yi] != -1:
                     self.stippleSegmentList.append([[xi, yi]])
                     # self.segmentList.append([[xi,yi]])
@@ -255,10 +255,10 @@ class Canny:
             if len(X) > limit:
                 self.thresHigh *= 1.25
                 self.thresLow *= 1.25
-                print "Degrade threshold", self.thresHigh, len(X)
+                print("Degrade threshold", self.thresHigh, len(X))
             else:
                 done = True
-                XY = zip(X, Y)
+                XY = list(zip(X, Y))
         self.threshPts = sorted(XY, key=lambda x: x[1])
         if len(self.threshPts) == 0: return -1
         iP = self.threshPts.pop(0)

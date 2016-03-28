@@ -2,7 +2,6 @@ import Hilbert
 import sys
 from scipy import misc
 from scipy import ndimage
-from time import time
 
 
 
@@ -23,4 +22,4 @@ if __name__ == "__main__":
     elif len(sys.argv) == 3:
         main(sys.argv[1], sys.argv[2])
     else:
-        print "Error: unknown usage"
+        print("Error: unknown usage")

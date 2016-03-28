@@ -91,7 +91,7 @@ class Maze:
         cov = [[1., 0.], [0., 1.]]
         size = len(self.seg.segmentList[0])
         x, y = np.random.multivariate_normal(mean, cov, size).T
-        z = zip(x, y)
+        z = list(zip(x, y))
         brown = []
         for i, zi in enumerate(z):
             n = np.array(zi)
@@ -104,7 +104,7 @@ class Maze:
     def faring(self):
         null = (0., 0.)
         fare = [null]  # initial element
-        for i in xrange(1,
+        for i in range(1,
                         len(self.seg.segmentList[0]) - 1):
             pim1 = np.array(self.seg.segmentList[0][i - 1])
             pi = np.array(self.seg.segmentList[0][i])
@@ -125,9 +125,9 @@ class Maze:
         returnList = []
         R1 = 3.0 * self.R0
         end = len(self.seg.segmentList[0])
-        for i in xrange(0,end):
+        for i in range(0,end):
             fi = np.array([0., 0.])
-            for j in xrange(0, end-1):
+            for j in range(0, end-1):
                 if j < i - 2 or j >= i + 2:
                     i_pt = self.seg.segmentList[0][i]
                     j_pt = self.seg.segmentList[0][j]
@@ -160,12 +160,12 @@ class Maze:
         pt_10 = (self.seg.xmax + 0.5 * self.R0_B, self.seg.ymin - 0.5 * self.R0_B)
         boundary_seg = [pt_00, pt_01, pt_11, pt_10, pt_00]
 
-        for i in xrange(0,
+        for i in range(0,
                         len(self.seg.segmentList[0])):
             fi = np.array([0., 0.])
             # delta_pi = self.delta(i)
             pi = np.array(self.seg.segmentList[0][i])
-            for j in xrange(0,
+            for j in range(0,
                             len(boundary_seg) - 1):
                 j_pt = boundary_seg[j]
                 jp1_pt = boundary_seg[j + 1]
@@ -232,10 +232,10 @@ class Maze:
             self.resampling()
 
             # stopping criteria
-            if loop_count > 100000:
+            if loop_count > 1000:
                 break
             loop_count += 1
-            if loop_count % 100000 == 1:
+            if loop_count % 100 == 1:
                 plt_x = [a[0] for a in self.seg.segmentList[0]]
                 plt_y = [a[1] for a in self.seg.segmentList[0]]
                 plt.plot(plt_x, plt_y, '.-')

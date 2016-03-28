@@ -27,7 +27,7 @@ class TestCannyI10_1(Canny_identity10_1):
 class Canny_identity10_100(TestCase):
     def setUp(self):
         im = np.eye(10, 10, 0)
-        for k in xrange(1, 10):
+        for k in range(1, 10):
             im += np.eye(10, 10, k)
         im = 100. * im
         self.CannyInst = Canny(im, sigma=0.0001)
@@ -44,7 +44,7 @@ class TestCannyI10_100(Canny_identity10_100):
 class Canny_identity10_100_2(TestCase):
     def setUp(self):
         im = np.eye(10, 10, 0)
-        for k in xrange(1, 10):
+        for k in range(1, 10):
             im += np.eye(10, 10, -1 * k)
         im = 100. * im
         self.CannyInst = Canny(im, sigma=0.0001)
@@ -62,10 +62,10 @@ class TestCannyI10_100_2(Canny_identity10_100_2):
 class Canny_eye20x20_mst(TestCase):
     def setUp(self):
         im = np.eye(20, 20, 0)
-        for k in xrange(1, 20):
+        for k in range(1, 20):
             im += np.eye(20, 20, -1 * k)
 
-        for k in xrange(18, 20):
+        for k in range(18, 20):
             im += np.eye(20, 20, k)
         im = 100. * im
         self.CannyInst = Canny(im, sigma=0.0001)

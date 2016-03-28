@@ -42,7 +42,7 @@ class EuclidMST:
             tree.append([])
             if i == node: continue
             childCount[pred[i]] += (self.distMatrix[pred[i], i] + childCount[i])
-        for i in xrange(0, len(narray)):
+        for i in range(0, len(narray)):
             if pred[i] == -9999: continue
             tree[pred[i]].append((i, childCount[i]))
         for l in tree:
@@ -69,7 +69,7 @@ class EuclidMST:
 
         points = numpy.array(pl, float)
         self.tri = scipy.spatial.Delaunay(points)
-        print "Delaunay Done"
+        print("Delaunay Done")
         self.size = len(self.tri.points)
         lilmatrix = lil_matrix((self.size, self.size), dtype=float)
 
@@ -98,10 +98,10 @@ class EuclidMST:
 
         self.distMatrix = lilmatrix.tocsr()
 
-        print "start MST"
+        print("start MST")
 
         self.spnTree = minimum_spanning_tree(self.distMatrix)
-        print "done MST"
+        print("done MST")
         (aidx, bidx) = self.spnTree.nonzero()
         # make undirected
         for (a, b) in zip(aidx, bidx):
@@ -140,11 +140,11 @@ class EuclidMST:
     def segmentOrdering(self):
         # traversal = self.dfo(0,None)
         tree = self.dfo_nonrec(0)
-        print "Done dfo"
+        print("Done dfo")
         self.nodeTrav = []
         # self.treetrav(traversal)
         self.treetrav_nonrec(tree)
-        print "treetrav done"
+        print("treetrav done")
 
         covered = [False] * len(self.segmentList)
         covered[0] = True
@@ -152,7 +152,7 @@ class EuclidMST:
 
         self.newSegmentTree = []
 
-        for z in xrange(0, len(self.nodeTrav) - 1):
+        for z in range(0, len(self.nodeTrav) - 1):
             s0 = self.lidx[self.nodeTrav[z]]
             s1 = self.lidx[self.nodeTrav[z + 1]]
             if s0[0] == s1[0] or len(self.segmentList[s0[0]]) == 1:

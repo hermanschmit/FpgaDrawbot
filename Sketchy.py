@@ -111,9 +111,9 @@ class Sketchy:
     def measCentroid(self, mat, levels):
         pixel = reshape(mat, (mat.shape[0]*mat.shape[1], 1))
         centroids, _ = kmeans(pixel, levels)
-        print centroids
+        print(centroids)
         self.centroids = np.sort(centroids, axis=0)
-        print self.centroids
+        print((self.centroids))
 
     def quantMatrix(self, mat):
         pixel = reshape(mat, (mat.shape[0]*mat.shape[1], 1))
@@ -171,7 +171,7 @@ class Sketchy:
         best = self.pen
         for delta in (40,80,120,160):
             best_val = float("-inf")
-            for e in xrange(self.moveEval):
+            for e in range(self.moveEval):
 
                 newpt = (self.pen[0] + random.randint(-delta, delta), self.pen[1] + random.randint(-delta, delta))
                 newpt = (max(0, min(self.target_mat.shape[0]-1, newpt[0])),
@@ -205,7 +205,7 @@ class Sketchy:
             segmentList_simp.append(ns)
             numpts += len(ns)
         if numpts-1 >= depth:
-            print "Number of points exceeds limit: "+repr(numpts)
+            print(("Number of points exceeds limit: "+repr(numpts)))
             raise ValueError
         f.write("float diag["+repr(depth)+"][2] = {\n")
         m = max(self.x//2, self.y//2)
@@ -215,7 +215,7 @@ class Sketchy:
                 x, y = self.pixelscale(p, m)
                 f.write("       {"+repr(y)+", "+repr(x)+"},\n")
                 i += 1
-        for j in xrange(i, depth-1):
+        for j in range(i, depth-1):
             f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
@@ -229,7 +229,7 @@ class Sketchy:
             segmentList_simp.append(ns)
             numpts += len(ns)
         if numpts-1 >= depth:
-            print "Number of points exceeds limit: "+repr(numpts)
+            print(("Number of points exceeds limit: "+repr(numpts)))
             raise ValueError
         m = max(self.x//2, self.y//2)
         i = 0

@@ -38,7 +38,7 @@ def d2xy(n, d, moore=False):
     x = y = 0
     s = 1
     while s < n:
-        rx = 1 & (t / 2)
+        rx = 1 & (t // 2)
         ry = 1 & (t ^ rx)
         if moore and s*2 >= n:
             x, y = rot_moore(s, x, y, rx, ry)
@@ -47,7 +47,7 @@ def d2xy(n, d, moore=False):
         # if not moore or s*2 < n:
         x += s * rx
         y += s * ry
-        t /= 4
+        t //= 4
         s *= 2
     return x, y
 
@@ -102,7 +102,7 @@ def hilbert(args,options):
     seg = Segments.Segments()
     s = []
     n = (1<<options.level)
-    for d in xrange(n**2):
+    for d in range(n**2):
         x,y = d2xy(n, d, options.moore)
         s.append([x,y])
     seg.append(s)

@@ -95,7 +95,7 @@ class TestEuclidMST_ptsU(EuclidMST_instU):
 class EuclidMST_inst100(TestCase):
     def setUp(self):
         l = []
-        for x in xrange(0, 100):
+        for x in range(0, 100):
             l.append([[x, 0], [x, 1]])
         segList = np.array(l)
         self.euclidmst = EuclidMST(segList)

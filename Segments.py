@@ -79,7 +79,7 @@ class Segments:
             segmentSimp.append(ns)
             numpts += len(ns)
         if numpts-1 >= self.max_depth:
-            print "Number of points exceeds limit: "+repr(numpts)
+            print(("Number of points exceeds limit: "+repr(numpts)))
             raise ValueError
         self.numpts = numpts
         self.segmentList = numpy.array(segmentSimp)
@@ -93,7 +93,7 @@ class Segments:
                 # x, y = self.pixelscale(p)
                 f.write("       {"+repr(p[1])+", "+repr(p[0])+"},\n")
                 i += 1
-        for j in xrange(i, self.max_depth-1):
+        for j in range(i, self.max_depth-1):
             f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
@@ -144,7 +144,8 @@ class Segments:
         self.xmin *= ratio
         self.ymin *= ratio
 
-    def offset(self,(dx,dy)):
+    def offset(self, xxx_todo_changeme):
+        (dx,dy) = xxx_todo_changeme
         sL = []
         for i, seg in enumerate(self.segmentList):
             l = [[dx+float(p[0]),dy+float(p[1])] for p in seg]
@@ -314,9 +315,9 @@ class Segments:
         totald = 0
         assert len(self.segmentList) == 1
         seg0 = self.segmentList[0]
-        for a in xrange(len(seg0) - 3):
-            for c in xrange(a + 1, min(a + maxdelta, len(seg0) - 2)):
-               for e in xrange(c + 1, min(c + maxdelta, len(seg0) - 1)):
+        for a in range(len(seg0) - 3):
+            for c in range(a + 1, min(a + maxdelta, len(seg0) - 2)):
+               for e in range(c + 1, min(c + maxdelta, len(seg0) - 1)):
                    totald += self.threeOpt(a, c, e)
         return totald
 
@@ -326,20 +327,20 @@ class Segments:
         actual_threshold = threshold * math.hypot(self.xmax-self.xmin,
                                                   self.ymax-self.ymin)
         totald = 0.
-        for c in xrange(len(seg0) - 2):
+        for c in range(len(seg0) - 2):
             c_pt = seg0[c]
             d_pt = seg0[c + 1]
             if _ptlen_local(c_pt,d_pt) < actual_threshold:
                 continue
-            print c, c_pt, d_pt
+            print(c, c_pt, d_pt)
             min_pt = c_pt - 0.01*(d_pt - c_pt)
             max_pt = d_pt + 0.01*(d_pt - c_pt)
-            print min_pt, max_pt
-            for a in xrange(0, c-1):
+            print(min_pt, max_pt)
+            for a in range(0, c-1):
                 a_pt = seg0[a]
                 if (a_pt < min_pt).any() or (a_pt > max_pt).any():
                     continue
-                for e in xrange(c + 1, len(seg0) - 1):
+                for e in range(c + 1, len(seg0) - 1):
                     e_pt = seg0[e]
                     if (e_pt < min_pt).any() or (e_pt > max_pt).any():
                         continue
@@ -348,7 +349,7 @@ class Segments:
                     totald += delta
                     if delta < 0.0:
                         break
-            print totald
+            print(totald)
         return totald
 
     @staticmethod
@@ -430,4 +431,4 @@ if __name__ == "__main__":
     elif len(sys.argv) == 3:
         main_tsp(sys.argv[1], sys.argv[2])
     else:
-        print "Error: unknown usage"
+        print("Error: unknown usage")

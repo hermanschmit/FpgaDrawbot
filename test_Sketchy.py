@@ -13,4 +13,4 @@ class TestSketchy_transform1(Sketchy_BotTransformRaw1):
     def runTest(self):
         c = (700, 700)
         x, y = Sketchy.botTransformReverse(c, 0, 0, 1000)
-        print x, y
+        print((x, y))

@@ -2,7 +2,7 @@
 Hilbert based imaging
 """
 
-import Queue as Q
+import queue
 
 import numpy
 from scipy import *
@@ -88,8 +88,8 @@ class Hilbert:
         A, B, G, S = [7.0 / 16.0, 3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0]
         (xdim, ydim) = self.imin.shape
 
-        for y in xrange(0, ydim - 2 - stride, stride):
-            for x in xrange(0, xdim - 2 - stride, stride):
+        for y in range(0, ydim - 2 - stride, stride):
+            for x in range(0, xdim - 2 - stride, stride):
                 oldpixel = self.stipple_im[x, y]
                 if oldpixel > 128:
                     newpixel = 255
@@ -113,7 +113,7 @@ class Hilbert:
         return y
 
     def hilbertSequence(self):
-        q = Q.PriorityQueue()
+        q = queue.PriorityQueue()
 
         (xL, yL) = self.power2(shape(self.stipple_im))
         dim = max(xL, yL)
@@ -142,11 +142,11 @@ class Hilbert:
 
     def twoOpt(self, seg, maxdelta=100):
         totald = 0
-        for a in xrange(len(seg) - 4):
+        for a in range(len(seg) - 4):
             a_pt = seg[a]
             b_pt = seg[a + 1]
             ab_len = ptlen(a_pt, b_pt)
-            for c in xrange(a + 2, min(a + maxdelta, len(seg) - 2)):
+            for c in range(a + 2, min(a + maxdelta, len(seg) - 2)):
                 c_pt = seg[c]
                 d_pt = seg[c + 1]
                 cd_len = ptlen(c_pt, d_pt)
@@ -168,15 +168,15 @@ class Hilbert:
 
     def threeOpt(self, seg, maxdelta=10):
         totald = 0
-        for a in xrange(len(seg) - 6):
+        for a in range(len(seg) - 6):
             a_pt = seg[a]
             b_pt = seg[a + 1]
             ab_len = ptlen(a_pt, b_pt)
-            for c in xrange(a + 2, min(a + maxdelta, len(seg) - 4)):
+            for c in range(a + 2, min(a + maxdelta, len(seg) - 4)):
                 c_pt = seg[c]
                 d_pt = seg[c + 1]
                 cd_len = ptlen(c_pt, d_pt)
-                for e in xrange(c + 2, min(c + maxdelta, len(seg) - 2)):
+                for e in range(c + 2, min(c + maxdelta, len(seg) - 2)):
                     e_pt = seg[e]
                     f_pt = seg[e + 1]
                     ef_len = ptlen(e_pt, f_pt)
@@ -239,7 +239,7 @@ class Hilbert:
 
     def totalLength(self, seg):
         total = 0.
-        for a in xrange(len(seg) - 1):
+        for a in range(len(seg) - 1):
             total += ptlen(seg[a], seg[a + 1])
         return total
 
@@ -273,7 +273,7 @@ class Hilbert:
 
         # quantize
         self.measCentroid(self.imin, levels)
-        print self.centroids
+        print(self.centroids)
         nq = numpy.array([[0],[85],[170],[255]])
         self.quantMatrix(self.imin,nq)
 
@@ -300,10 +300,10 @@ class Hilbert:
         #             break
 
         d = self.totalLength(self.segments.segmentList[0])
-        for s in xrange(2,4,2):
+        for s in range(2,4,2):
             while True:
                 delta = self.segments.threeOptLoop(maxdelta=s)
-                print delta
+                print(delta)
                 d2 = self.totalLength(self.segments.segmentList[0])
                 assert almost_equal(delta, d2 - d)
                 d = d2
@@ -312,15 +312,15 @@ class Hilbert:
 
         while True:
             delta = self.segments.threeOptLongs()
-            print delta
+            print(delta)
             if delta == 0:
                 break
 
         d = self.totalLength(self.segments.segmentList[0])
-        for s in xrange(2,8,2):
+        for s in range(2,8,2):
             while True:
                 delta = self.segments.threeOptLoop(maxdelta=s)
-                print delta
+                print(delta)
                 d2 = self.totalLength(self.segments.segmentList[0])
                 assert almost_equal(delta, d2 - d)
                 d = d2

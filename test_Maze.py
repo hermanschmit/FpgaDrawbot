@@ -8,7 +8,7 @@ __author__ = 'herman'
 class Maze_identity10_100(TestCase):
     def setUp(self):
         im = np.eye(100, 100, 0)
-        for k in xrange(1, 10):
+        for k in range(1, 10):
             im += np.eye(100, 100, k)
         im = 100. * im
         self.MazeInst = Maze(im)
@@ -52,7 +52,6 @@ class Maze1(Maze_seg1):
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
 
-        print a_r
         pass
 
 class Maze_seg2(TestCase):
@@ -86,7 +85,6 @@ class Maze2(Maze_seg2):
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
 
-        print a_r
         pass
 
 class Maze_seg3(TestCase):

@@ -184,7 +184,7 @@ def processFile(filename, options):
     if options.normalize:
         y -= numpy.average(y)
         y /= numpy.std(y)
-    for i in xrange(0, len(x)):
+    for i in range(0, len(x)):
         c, r = d2xy(n, int(round((n ** 2 - 1) * x[i] / options.max)))
         m[r][c] += y[i]
     return m
@@ -311,7 +311,7 @@ def generateVectors(level, moore):
     n = (1 << level)
     x = numpy.zeros(n ** 2, dtype=numpy.int16)
     y = numpy.zeros(n ** 2, dtype=numpy.int16)
-    for i in xrange(0, n ** 2):
+    for i in range(0, n ** 2):
         x[i], y[i] = d2xy(n, i, moore)
         d = xy2d(n, x[i], y[i], moore)
         assert i == d
@@ -322,7 +322,7 @@ def generateVectors(level, moore):
 def generateDemo(options):
     n = 1 << options.level
     m = numpy.zeros((n, n))
-    for i in xrange(0, n ** 2):
+    for i in range(0, n ** 2):
         x, y = d2xy(n, i)
         m[y][x] = i
     return m
