@@ -378,9 +378,6 @@ class Segments:
 
         return dist, (x,y)
 
-    def snapBoundary(self,segment):
-        pass
-
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
     s = Segments()

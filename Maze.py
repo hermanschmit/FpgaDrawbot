@@ -4,10 +4,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from numba import jit
+import concurrent.futures as cf
+from scipy import spatial
 
 @jit
 def _ptlen_local(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+@jit
+def _ptlen2_local(a, b):
+    return (a[0] - b[0])**2 + (a[1] - b[1])**2
 
 @jit
 def _LennardJones(r):
@@ -23,32 +29,7 @@ def _LennardJones2(R0,i_pt,pi2xij,xij,Fa):
 @jit
 def _repulse(r):
     force = (r ** 12)
-    #force = -1. * (r ** 4)
     return force
-
-@jit
-def _distABtoP(a_pt, b_pt, p_pt):
-    seg_x = b_pt[0] - a_pt[0]
-    seg_y = b_pt[1] - a_pt[1]
-
-    seglen_sqrd = seg_x * seg_x + seg_y * seg_y
-
-    u = ((p_pt[0] - a_pt[0]) * seg_x + (p_pt[1] - a_pt[1]) * seg_y) / float(seglen_sqrd)
-
-    if u > 1:
-        u = 1
-    elif u < 0:
-        u = 0
-
-    x = a_pt[0] + u * seg_x
-    y = a_pt[1] + u * seg_y
-
-    dx = x - p_pt[0]
-    dy = y - p_pt[1]
-
-    dist = math.sqrt(dx * dx + dy * dy)
-
-    return dist, (x, y)
 
 
 class Maze:
@@ -56,9 +37,9 @@ class Maze:
     K1 = 0.15  # [1.5*K0; 2.5*K0]
     D = 10  # dimensional adjustment?
     KMIN = 1.5
-    KMAX = 4.0
+    KMAX = 3.5
     Ff = 0.1  # [0.005; 0.3]
-    Fb = 0.15  # [0; 0.2]
+    Fb = 0.05  # [0; 0.2]
     Fa = 1.  # [0; 10]
     Fo = 1.
     NMIN = 1  # [1,2]
@@ -66,6 +47,9 @@ class Maze:
 
     R0 = 6.
     R0_B = 8.
+
+    PROCESSORS = 3
+    CHUNK = 200
 
     '''
     Notes
@@ -116,33 +100,63 @@ class Maze:
         assert len(fare) == len(self.seg.segmentList[0])
         return np.array(fare)
 
-    def attract_repel_slow(self):
+    def attract_repel_segment(self, s, chunk=self.CHUNK):
+        R1 = 2.5 * self.R0
+        local_min = sys.float_info.max
+        fi_l = []
+        for i in range(s, s + chunk):
+            if i >= len(self.seg.segmentList[0]):
+                continue
+            fi = np.array([0., 0.])
+            i_pt = self.seg.segmentList[0][i]
+            neighbors = self.kdtree.query_ball_point(i_pt, R1)
+            n_set = set(neighbors)
+            for x in neighbors:
+                n_set.add(x - 1)
+
+            for j in n_set:
+                if j < 0 or j == len(self.seg.segmentList[0]) - 1:
+                    continue
+                if j < i - 2 or j >= i + 2:
+                    j_pt = self.seg.segmentList[0][j]
+                    jp1_pt = self.seg.segmentList[0][j + 1]
+                    pi2xij, xij = self.seg.distABtoP(j_pt, jp1_pt, i_pt)
+                    local_min = min(local_min, pi2xij)
+                    if pi2xij < R1:
+                        fij = _LennardJones2(self.R0, i_pt, pi2xij, xij, self.Fa)
+                        fi += fij
+            fi_l.append(fi)
+
+        return fi_l, local_min
+
+    def attract_repel_serial(self):
         """
         This is the brute force version
         Returns:
         attract repel vector
         """
+        self.kdtree = spatial.cKDTree(self.seg.segmentList[0])
         returnList = []
-        R1 = 3.0 * self.R0
-        end = len(self.seg.segmentList[0])
-        for i in range(0,end):
-            fi = np.array([0., 0.])
-            for j in range(0, end-1):
-                if j < i - 2 or j >= i + 2:
-                    i_pt = self.seg.segmentList[0][i]
-                    j_pt = self.seg.segmentList[0][j]
-                    jp1_pt = self.seg.segmentList[0][j + 1]
-                    if max(abs(i_pt-j_pt)) > R1 and max(abs(i_pt-jp1_pt)) > R1:
-                        continue
-                    pi2xij, xij = self.seg.distABtoP(j_pt, jp1_pt, i_pt)
-                    self.minDist = min(self.minDist,pi2xij)
-                    if pi2xij < R1:
-                        fij = _LennardJones2(self.R0,i_pt,pi2xij,xij,self.Fa)
-                        #fij = (i_pt - xij) / pi2xij
-                        #fij *= _LennardJones(self.R0/pi2xij) * self.Fa
-                        fi += fij
-            returnList.append(fi)
-        # assert len(returnList) == len(self.seg.segmentList[0])
+        for x in range(0,len(self.seg.segmentList[0])):
+            fi_l, lm = self.attract_repel_segment(x,1)
+            self.minDist = min(self.minDist,lm)
+            returnList.extend(fi_l)
+        return np.array(returnList)
+
+    def attract_repel_parallel(self):
+        """
+        This is the parallel version, attempt 1
+        Returns:
+        attract repel vector
+        """
+        self.kdtree = spatial.cKDTree(self.seg.segmentList[0])
+
+        with cf.ProcessPoolExecutor(self.PROCESSORS) as pool:
+            x = pool.map(self.attract_repel_segment,range(0,len(self.seg.segmentList[0]),self.CHUNK))
+        returnList = []
+        for fi_l, lm in x:
+            returnList.extend(fi_l)
+            self.minDist=min(self.minDist,lm)
         return np.array(returnList)
 
 
@@ -198,7 +212,7 @@ class Maze:
         self.seg.segmentList[0] = tmp3
 
 
-    def optimize_loop1(self):
+    def optimize_loop1(self,loop_bound):
         # Main optimize loop
         # keep running until stopping criteria met
         loop_count = 0
@@ -208,19 +222,27 @@ class Maze:
             self.minDist = sys.float_info.max
             # compute force on each node
             brownian = self.brownian()
-            attract_repel = self.attract_repel_slow()
+            if len(self.seg.segmentList[0]) < 200*self.PROCESSORS:
+                attract_repel = self.attract_repel_serial()
+            else:
+                attract_repel = self.attract_repel_parallel()
             fairing = self.faring()
             boundary = self.boundary_slow()
 
             # move each node
-            #netforce = np.add(boundary,np.add(fairing,attract_repel))
-            netforce = np.add(boundary,np.add(fairing,np.add(brownian, attract_repel)))
+            netforce = np.add(boundary,np.add(fairing,attract_repel))
+            #netforce = np.add(boundary,np.add(fairing,np.add(brownian, attract_repel)))
             #netforce = np.add(fairing,np.add(brownian, attract_repel))
             deltaforce = [np.hypot(a[0], a[1]) for a in netforce]
             maxdelta = np.max(deltaforce)
+            assert self.minDist / maxdelta > 0.0
             if maxdelta > 1.*self.minDist:
                 netforce = np.multiply(netforce, 1. * self.minDist / maxdelta)
             netmove = np.multiply(netforce, 1.)
+
+            # don't scale noise by size maxdelta
+
+            netmove = np.add(netmove,brownian)
 
             tmp1 = np.add(self.seg.segmentList[0], netmove)
             tmp2 = tmp1[:]
@@ -232,19 +254,21 @@ class Maze:
             self.resampling()
 
             # stopping criteria
-            if loop_count > 1000:
+            if loop_count > loop_bound:
                 break
             loop_count += 1
-            if loop_count % 100 == 1:
+            if loop_count % 100 == 0:
+                print(str(loop_count)+" "+str(len(self.seg.segmentList[0])))
+            if loop_count % 200 == 1:
                 plt_x = [a[0] for a in self.seg.segmentList[0]]
                 plt_y = [a[1] for a in self.seg.segmentList[0]]
                 plt.plot(plt_x, plt_y, '.-')
-                plt.show()
+                plt.savefig("fig"+str(loop_count)+".png")
 
         plt_x = [a[0] for a in self.seg.segmentList[0]]
         plt_y = [a[1] for a in self.seg.segmentList[0]]
         plt.plot(plt_x, plt_y, '.-')
-        plt.show()
+        plt.savefig("fig"+str(loop_count)+".png")
 
     def __init__(self, image_matrix, white=1):
         """

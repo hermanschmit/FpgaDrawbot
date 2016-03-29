@@ -2,10 +2,24 @@ from unittest import TestCase
 
 from Maze import Maze
 import numpy as np
+import sys
 
 __author__ = 'herman'
 
-class Maze_identity10_100(TestCase):
+class Maze_identity40(TestCase):
+    def setUp(self):
+        im = np.eye(40, 40, 0)
+        for k in range(1, 10):
+            im += np.eye(40, 40, k)
+        im = 100. * im
+        self.MazeInst = Maze(im)
+
+class Maze0(Maze_identity40):
+    def runTest(self):
+        self.MazeInst.optimize_loop1(800)
+        pass
+
+class Maze_identity100(TestCase):
     def setUp(self):
         im = np.eye(100, 100, 0)
         for k in range(1, 10):
@@ -13,9 +27,9 @@ class Maze_identity10_100(TestCase):
         im = 100. * im
         self.MazeInst = Maze(im)
 
-class Maze0(Maze_identity10_100):
+class Maze1b(Maze_identity100):
     def runTest(self):
-        self.MazeInst.optimize_loop1()
+        self.MazeInst.optimize_loop1(3000)
         pass
 
 class Maze_seg1(TestCase):
@@ -39,11 +53,9 @@ class Maze_seg1(TestCase):
 
 class Maze1(Maze_seg1):
     def runTest(self):
-        a_r = self.MazeInst.attract_repel_slow()
+        a_r = self.MazeInst.attract_repel_serial()
         self.assertEqual(a_r[0,0], 0.)
         self.assertEqual(a_r[0,1], 0.)
-#        self.assertEqual(a_r[1,0],-1.*a_r[2,0])
-#        self.assertEqual(a_r[3,0],-1.*a_r[4,0])
         self.assertEqual(a_r[1,0], 0.)
         self.assertEqual(a_r[2,0], 0.)
         self.assertEqual(a_r[3,0], 0.)
@@ -51,8 +63,21 @@ class Maze1(Maze_seg1):
         self.assertEqual(a_r[5,0], 0.)
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
+        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
 
-        pass
+class Maze1p(Maze_seg1):
+    def runTest(self):
+        a_r = self.MazeInst.attract_repel_parallel()
+        self.assertEqual(a_r[0,0], 0.)
+        self.assertEqual(a_r[0,1], 0.)
+        self.assertEqual(a_r[1,0], 0.)
+        self.assertEqual(a_r[2,0], 0.)
+        self.assertEqual(a_r[3,0], 0.)
+        self.assertEqual(a_r[4,0], 0.)
+        self.assertEqual(a_r[5,0], 0.)
+        self.assertEqual(a_r[6,0], 0.)
+        self.assertEqual(a_r[7,0], 0.)
+        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
 
 class Maze_seg2(TestCase):
     def setUp(self):
@@ -74,7 +99,7 @@ class Maze_seg2(TestCase):
 
 class Maze2(Maze_seg2):
     def runTest(self):
-        a_r = self.MazeInst.attract_repel_slow()
+        a_r = self.MazeInst.attract_repel_serial()
         self.assertEqual(a_r[0,0], 0.)
         self.assertEqual(a_r[0,1], 0.)
         self.assertEqual(a_r[1,0], 0.)
@@ -84,8 +109,22 @@ class Maze2(Maze_seg2):
         self.assertEqual(a_r[5,0], 0.)
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
+        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
 
-        pass
+class Maze2p(Maze_seg2):
+    def runTest(self):
+        a_r = self.MazeInst.attract_repel_parallel()
+        self.assertEqual(a_r[0,0], 0.)
+        self.assertEqual(a_r[0,1], 0.)
+        self.assertEqual(a_r[1,0], 0.)
+        self.assertEqual(a_r[2,0], 0.)
+        self.assertEqual(a_r[3,0], 0.)
+        self.assertEqual(a_r[4,0], 0.)
+        self.assertEqual(a_r[5,0], 0.)
+        self.assertEqual(a_r[6,0], 0.)
+        self.assertEqual(a_r[7,0], 0.)
+        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
+
 
 class Maze_seg3(TestCase):
     def setUp(self):
@@ -112,12 +151,24 @@ class Maze_seg3(TestCase):
 
 class Maze2(Maze_seg3):
     def runTest(self):
-        a_r = self.MazeInst.attract_repel_slow()
+        a_r = self.MazeInst.attract_repel_serial()
         self.assertEqual(a_r[1,0]+a_r[3,0], 0.)
         self.assertLess(a_r[1,0],0.)
         self.assertEqual(a_r[4,0]+a_r[6,0], 0.)
         self.assertLess(a_r[4,0],0.)
         self.assertEqual(a_r[10,0]+a_r[12,0], 0.)
         self.assertGreater(a_r[10,0],0)
+        self.assertEqual(self.MazeInst.minDist,2.)
 
-        pass
+class Maze2p(Maze_seg3):
+    def runTest(self):
+        a_r = self.MazeInst.attract_repel_parallel()
+        self.assertEqual(a_r[1,0]+a_r[3,0], 0.)
+        self.assertLess(a_r[1,0],0.)
+        self.assertEqual(a_r[4,0]+a_r[6,0], 0.)
+        self.assertLess(a_r[4,0],0.)
+        self.assertEqual(a_r[10,0]+a_r[12,0], 0.)
+        self.assertGreater(a_r[10,0],0)
+        self.assertEqual(self.MazeInst.minDist,2.)
+
+
