@@ -61,7 +61,6 @@ class Canny:
     def segment2grad(self, interior=False):
         self.segments.segment2grad(interior)
 
-    # TODO; remove?
     def stipple(self, stride=4):
         # probably want to smooth imin
         im = self.imin[:]

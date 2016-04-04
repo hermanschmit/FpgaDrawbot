@@ -6,11 +6,10 @@ import queue
 
 import numpy
 from scipy import *
-from scipy.cluster.vq import kmeans, vq
 from scipy import misc
 
 import Segments
-
+import Quantization
 
 def xy2d(n, x, y, moore=False):
     d = 0
@@ -243,19 +242,6 @@ class Hilbert:
             total += ptlen(seg[a], seg[a + 1])
         return total
 
-    def measCentroid(self, mat, levels):
-        pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
-        centroids, _ = kmeans(pixel, levels)
-        self.centroids = sort(centroids, axis=0)
-
-    def quantMatrix(self, mat, newQuant, augmentWhite=True):
-        pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
-        qnt, _ = vq(pixel, self.centroids)
-        self.quant_idx = reshape(qnt, (mat.shape[0], mat.shape[1]))
-        self.imin = newQuant[self.quant_idx, 0]
-        if augmentWhite:
-            x, y = where(self.imin == self.centroids[-1])
-            self.imin[x, y] = 255
 
     def __init__(self, image_matrix, white=1, levels=4):
         """
@@ -272,10 +258,10 @@ class Hilbert:
         self.imin += 255 - (255 // white)
 
         # quantize
-        self.measCentroid(self.imin, levels)
+        self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
-        nq = numpy.array([[0],[85],[170],[255]])
-        self.quantMatrix(self.imin,nq)
+        nq = np.array([[x*255/(levels-1)] for x in range(0,levels)])
+        self.imin =Quantization.quantMatrix(self.imin,nq,self.centroids)
 
         misc.imsave("test.png", self.imin)
 

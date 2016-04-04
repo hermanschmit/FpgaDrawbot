@@ -16,7 +16,7 @@ class Maze_identity40(TestCase):
 
 class Maze0(Maze_identity40):
     def runTest(self):
-        self.MazeInst.optimize_loop1(800)
+        self.MazeInst.optimize_loop1(100)
         pass
 
 class Maze_identity100(TestCase):
@@ -29,27 +29,30 @@ class Maze_identity100(TestCase):
 
 class Maze1b(Maze_identity100):
     def runTest(self):
-        self.MazeInst.optimize_loop1(3000)
+        self.MazeInst.optimize_loop1(100)
         pass
 
 class Maze_seg1(TestCase):
     def setUp(self):
         #placekeeper
-        im = np.eye(100, 100, 0)
+        im = np.eye(200, 200, 0)
         self.MazeInst = Maze(im)
-        self.MazeInst.R0 = 6
+        self.MazeInst.R0 = 1.
+        self.MazeInst.R1_R0 = 2.5
+        # with pixel value 0, r0 -> 9, r1 -> 22.5
         # Because of the fact that neighboring segments are not computed, This should be all zeros
-        segList = [[ -100.,  0.],
-                   [  0., 0.],
+        segList = [[  0., 0.],
                    [  2., 0.],
-                   [ 50., 0.],
-                   [ 54., 0.],
+                   [ 30., 0.],
+                   [ 34., 0.],
+                   [ 60., 0.],
+                   [ 66., 0.],
                    [100., 0.],
-                   [106., 0.],
-                   [150., 0.],
-                   [158., 0.]
+                   [102., 0.],
+                   [109., 0.], # should be zero because r0 -> 9.0
+                   [199., 0.]
                    ]
-        self.MazeInst.seg.segmentList[0] = np.array(segList)
+        self.MazeInst.maze_path = np.array(segList)
 
 class Maze1(Maze_seg1):
     def runTest(self):
@@ -63,7 +66,7 @@ class Maze1(Maze_seg1):
         self.assertEqual(a_r[5,0], 0.)
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
-        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
+        self.assertEqual(self.MazeInst.minDist, 9.0)
 
 class Maze1p(Maze_seg1):
     def runTest(self):
@@ -77,98 +80,5 @@ class Maze1p(Maze_seg1):
         self.assertEqual(a_r[5,0], 0.)
         self.assertEqual(a_r[6,0], 0.)
         self.assertEqual(a_r[7,0], 0.)
-        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
-
-class Maze_seg2(TestCase):
-    def setUp(self):
-        #placekeeper
-        # Because of the fact that neighboring segments are not computed, This should be all zeros
-        im = np.eye(100, 100, 0)
-        self.MazeInst = Maze(im)
-        self.MazeInst.R0 = 6
-        segList = [[  0., 0.],
-                   [  2., 0.],
-                   [ 50., 0.],
-                   [ 54., 0.],
-                   [100., 0.],
-                   [106., 0.],
-                   [150., 0.],
-                   [158., 0.]
-                   ]
-        self.MazeInst.seg.segmentList[0] = np.array(segList)
-
-class Maze2(Maze_seg2):
-    def runTest(self):
-        a_r = self.MazeInst.attract_repel_serial()
-        self.assertEqual(a_r[0,0], 0.)
-        self.assertEqual(a_r[0,1], 0.)
-        self.assertEqual(a_r[1,0], 0.)
-        self.assertEqual(a_r[2,0], 0.)
-        self.assertEqual(a_r[3,0], 0.)
-        self.assertEqual(a_r[4,0], 0.)
-        self.assertEqual(a_r[5,0], 0.)
-        self.assertEqual(a_r[6,0], 0.)
-        self.assertEqual(a_r[7,0], 0.)
-        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
-
-class Maze2p(Maze_seg2):
-    def runTest(self):
-        a_r = self.MazeInst.attract_repel_parallel()
-        self.assertEqual(a_r[0,0], 0.)
-        self.assertEqual(a_r[0,1], 0.)
-        self.assertEqual(a_r[1,0], 0.)
-        self.assertEqual(a_r[2,0], 0.)
-        self.assertEqual(a_r[3,0], 0.)
-        self.assertEqual(a_r[4,0], 0.)
-        self.assertEqual(a_r[5,0], 0.)
-        self.assertEqual(a_r[6,0], 0.)
-        self.assertEqual(a_r[7,0], 0.)
-        self.assertEqual(self.MazeInst.minDist,sys.float_info.max)
-
-
-class Maze_seg3(TestCase):
-    def setUp(self):
-        # This has dummy points so, we should get forces
-        im = np.eye(100, 100, 0)
-        self.MazeInst = Maze(im)
-        self.MazeInst.R0 = 6
-        segList = [[-99.,0.],
-                   [  0., 0.],
-                   [  1., 0.],
-                   [  2., 0.],
-                   [ 50., 0.],
-                   [ 52., 0.],
-                   [ 54., 0.],
-                   [100., 0.],
-                   [103., 0.],
-                   [106., 0.],
-                   [150., 0.],
-                   [154., 0.],
-                   [158., 0.],
-                   [200., 0.]
-                   ]
-        self.MazeInst.seg.segmentList[0] = np.array(segList)
-
-class Maze2(Maze_seg3):
-    def runTest(self):
-        a_r = self.MazeInst.attract_repel_serial()
-        self.assertEqual(a_r[1,0]+a_r[3,0], 0.)
-        self.assertLess(a_r[1,0],0.)
-        self.assertEqual(a_r[4,0]+a_r[6,0], 0.)
-        self.assertLess(a_r[4,0],0.)
-        self.assertEqual(a_r[10,0]+a_r[12,0], 0.)
-        self.assertGreater(a_r[10,0],0)
-        self.assertEqual(self.MazeInst.minDist,2.)
-
-class Maze2p(Maze_seg3):
-    def runTest(self):
-        a_r = self.MazeInst.attract_repel_parallel()
-        self.assertEqual(a_r[1,0]+a_r[3,0], 0.)
-        self.assertLess(a_r[1,0],0.)
-        self.assertEqual(a_r[4,0]+a_r[6,0], 0.)
-        self.assertLess(a_r[4,0],0.)
-        self.assertEqual(a_r[10,0]+a_r[12,0], 0.)
-        self.assertGreater(a_r[10,0],0)
-        self.assertEqual(self.MazeInst.minDist,2.)
-
+        self.assertEqual(self.MazeInst.minDist, 9.0)
 

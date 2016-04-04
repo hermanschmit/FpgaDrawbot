@@ -166,15 +166,17 @@ class Segments:
         """
         Bresenham's line algorithm
         """
-        dx = scale*abs(p1[0] - p0[0])
-        dy = scale*abs(p1[1] - p0[1])
-        x = scale*p0[0]
-        y = scale*p0[1]
-        sx = -1 if p0[0] > p1[0] else 1
-        sy = -1 if p0[1] > p1[1] else 1
+        p0_i = (round(p0[0]),round(p0[1]))
+        p1_i = (round(p1[0]),round(p1[1]))
+        dx = scale*abs(p1_i[0] - p0_i[0])
+        dy = scale*abs(p1_i[1] - p0_i[1])
+        x = scale*p0_i[0]
+        y = scale*p0_i[1]
+        sx = -1 if p0_i[0] > p1_i[0] else 1
+        sy = -1 if p0_i[1] > p1_i[1] else 1
         if dx > dy:
             err = dx / 2.0
-            while x != scale*p1[0]:
+            while x != scale*p1_i[0]:
                 self.grad[round(x), round(y)] = -1
                 err -= dy
                 if err < 0:
@@ -183,7 +185,7 @@ class Segments:
                 x += sx
         else:
             err = dy / 2.0
-            while y != scale*p1[1]:
+            while y != scale*p1_i[1]:
                 self.grad[round(x), round(y)] = -1
                 err -= dx
                 if err < 0:
