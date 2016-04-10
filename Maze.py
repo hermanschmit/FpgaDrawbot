@@ -96,7 +96,8 @@ class Maze:
     @staticmethod
     @jit
     def density(pixel_val):
-        x = 1. + math.log(pixel_val + 1, 2.)
+        x = 256/(256-pixel_val)
+        #x = 1. + math.log(pixel_val + 1, 2.)
         return x
 
     def R0_val(self, i_pt):
