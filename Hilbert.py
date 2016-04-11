@@ -11,6 +11,30 @@ from scipy import misc
 import Segments
 import Quantization
 
+
+def d2xy(n, d, moore=False):
+    """
+    take a d value in [0, n**2 - 1] and map it to
+    an x, y value (e.g. c, r).
+    """
+    assert (d <= n ** 2 - 1)
+    t = d
+    x = y = 0
+    s = 1
+    while s < n:
+        rx = 1 & (t // 2)
+        ry = 1 & (t ^ rx)
+        if moore and s * 2 >= n:
+            x, y = rot_moore(s, x, y, rx, ry)
+        else:
+            x, y = rot(s, x, y, rx, ry)
+        # if not moore or s*2 < n:
+        x += s * rx
+        y += s * ry
+        t //= 4
+        s *= 2
+    return x, y
+
 def xy2d(n, x, y, moore=False):
     d = 0
     s = n // 2
@@ -260,7 +284,7 @@ class Hilbert:
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
-        nq = np.array([[x*255/(levels-1)] for x in range(0,levels)])
+        nq = numpy.array([[x*255/(levels-1)] for x in range(0,levels)])
         self.imin =Quantization.quantMatrix(self.imin,nq,self.centroids)
 
         misc.imsave("test.png", self.imin)

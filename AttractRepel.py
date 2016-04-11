@@ -9,7 +9,7 @@ def _LennardJones(r):
     force = (r ** 12 - r ** 6)
     return force
 
-@jit(cache=True)
+#@jit(cache=True)
 def _LennardJones2(R0,i_pt,pi2xij,xij,Fa):
     fij = (i_pt-xij)/ pi2xij
     fij *= _LennardJones(R0/pi2xij) * Fa

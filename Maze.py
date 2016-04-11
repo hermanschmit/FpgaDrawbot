@@ -11,6 +11,7 @@ import Quantization
 import AttractRepel
 from functools import partial
 import timeit
+import Hilbert
 
 
 @jit
@@ -147,21 +148,15 @@ class Maze:
         """
         returnList = []
         R1 = 2.0 * self.R0_B
-        pt_00 = (self.xmin - 0.5 * self.R0_B, self.ymin - 0.5 * self.R0_B)
-        pt_01 = (self.xmin - 0.5 * self.R0_B, self.ymax + 0.5 * self.R0_B)
-        pt_11 = (self.xmax + 0.5 * self.R0_B, self.ymax + 0.5 * self.R0_B)
-        pt_10 = (self.xmax + 0.5 * self.R0_B, self.ymin - 0.5 * self.R0_B)
-        boundary_seg = [pt_00, pt_01, pt_11, pt_10, pt_00]
 
         for i in range(0,
                        len(self.maze_path)):
             fi = np.array([0., 0.])
-            # delta_pi = self.delta(i)
             pi = np.array(self.maze_path[i])
             for j in range(0,
-                           len(boundary_seg) - 1):
-                j_pt = boundary_seg[j]
-                jp1_pt = boundary_seg[j + 1]
+                           len(self.boundary_seg) - 1):
+                j_pt = self.boundary_seg[j]
+                jp1_pt = self.boundary_seg[j + 1]
                 pi2xij, xij = self.seg.distABtoP(j_pt, jp1_pt, pi)
                 self.minDist = min(self.minDist, pi2xij)
                 if pi2xij < R1:
@@ -293,20 +288,19 @@ class Maze:
 
             ceil_force = np.array(ceil_force)
 
-            # don't scale noise by size maxdelta
-
             netmove = np.add(ceil_force, brownian)
 
             tmp2 = np.add(self.maze_path, netmove)
-            tmp2[0] = self.maze_path[0]
-            tmp2[-1] = self.maze_path[-1]
-            self.maze_path = tmp2
+            tmp3 = [[min(self.bndry_xmax-1,max(self.xmin+1,x)),
+                     min(self.bndry_ymax-1,max(self.ymin+1,y))] for x,y in tmp2]
+            tmp3[0] = self.maze_path[0]
+            tmp3[-1] = self.maze_path[-1]
+
+            self.maze_path = np.array(tmp3)
 
             # resampling
             self.resampling()
-            test1 = self.maze_path[-1]
-            test2 = np.array((float(self.xmax), float(self.ymax)))
-            assert np.array_equal(test1, test2)
+
             # stopping criteria
             if loop_count > loop_bound:
                 break
@@ -332,7 +326,7 @@ class Maze:
         self.segments = Segments.Segments()
         self.segments.append(self.maze_path)
 
-    def __init__(self, image_matrix, white=1, levels=4):
+    def __init__(self, image_matrix, white=1, levels=4, init_shape=1):
         """
         :param image_matrix:
         """
@@ -350,14 +344,50 @@ class Maze:
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
+        levels = min(levels,len(self.centroids))
+
         nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
 
+        #self.R0_B = self.density(nq[-1][0])
+
         # Initial segment
-        self.maze_path = [(0., 0.)]
-        segListEnd = tuple([x - 1 for x in self.imin.shape])
-        self.maze_path.append(segListEnd)
+        if init_shape == 1:
+
+            moore = []
+            m = []
+            n = 1 << 4
+            for i in range(0, n ** 2):
+                x, y = Hilbert.d2xy(n, i, True)
+                m.append((x,y))
+                moore.append(((self.imin.shape[0]*x)/(2*n),
+                              (self.imin.shape[1]*y)/(2*n)))
+            m2q = len(moore)//4
+            moore2 = moore[m2q:]
+            moore2.extend(moore[:m2q])
+
+            moore3 = [(x+self.imin.shape[0]/4.,y+self.imin.shape[1]/4) for x,y in moore2]
+
+            self.maze_path = np.array(moore3)
+        else:
+            self.maze_path = [(0., 0.)]
+            segListEnd = tuple([x - 1 for x in self.imin.shape])
+            self.maze_path.append(segListEnd)
+            self.maze_path = np.array(self.maze_path)
         self.seg = Segments.Segments()
+
+        factor = 0.5
+        delta = 0.0
+        self.bndry_xmax = self.xmax + factor * self.R0_B - delta
+        self.bndry_ymax = self.ymax + factor * self.R0_B - delta
+        self.bndry_xmin = self.xmin - factor * self.R0_B + delta
+        self.bndry_ymin = self.ymin - factor * self.R0_B + delta
+        pt_00 = (self.bndry_xmin, self.bndry_ymin)
+        pt_01 = (self.bndry_xmin, self.bndry_ymax)
+        pt_11 = (self.bndry_xmax, self.bndry_ymax)
+        pt_10 = (self.bndry_xmax, self.bndry_ymin)
+        self.boundary_seg = [pt_00, pt_01, pt_11, pt_10, pt_00]
+
         self.minDist = sys.float_info.max
 
         # self.seg.scale(1.0) # fix the types. Hygiene
