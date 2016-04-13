@@ -345,6 +345,7 @@ class Maze:
         self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
         levels = min(levels,len(self.centroids))
+        levels = max(2,levels)
 
         nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
