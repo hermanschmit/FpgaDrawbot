@@ -7,10 +7,11 @@ Author: Vishwanath
 contact: vishwa.hyd@gmail.com
 """
 
-from scipy import *
-import scipy.ndimage as ndi
-from scipy.ndimage import gaussian_filter
 import numpy
+import scipy.ndimage as ndi
+from scipy import *
+from scipy.ndimage import gaussian_filter
+
 import EuclidMST
 import Segments
 
@@ -197,7 +198,6 @@ class Canny:
             segment = [init_point]
 
         self.stippleSegmentList = []
-
 
     @staticmethod
     def createFilter(rawfilter):

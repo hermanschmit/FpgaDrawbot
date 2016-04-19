@@ -35,13 +35,10 @@ import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.backends.backend_pdf as pltBack
-import matplotlib.lines as lines
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy
 from optparse import OptionParser
 import os
-import sys
 
 colorMaps = [m for m in plt.cm.datad if not m.endswith("_r")]
 

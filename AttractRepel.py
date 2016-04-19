@@ -1,6 +1,6 @@
-import numpy as np
-import scipy.spatial
 import math
+
+import numpy as np
 from numba import jit
 
 
@@ -9,17 +9,20 @@ def _LennardJones(r):
     force = (r ** 12 - r ** 6)
     return force
 
-#@jit(cache=True)
-def _LennardJones2(R0,i_pt,pi2xij,xij,Fa):
-    fij = (i_pt-xij)/ pi2xij
-    fij *= _LennardJones(R0/pi2xij) * Fa
+
+# @jit(cache=True)
+def _LennardJones2(R0, i_pt, pi2xij, xij, Fa):
+    fij = (i_pt - xij) / pi2xij
+    fij *= _LennardJones(R0 / pi2xij) * Fa
     return fij
+
 
 @jit
 def _density(pixel_val):
-    x = 256/(256-pixel_val)
+    x = 256 / (256 - pixel_val)
     # x = 1. + math.log(pixel_val + 1, 2.)
     return x
+
 
 @jit
 def _R0_val(i_pt, imin, R0, R1_R0):
@@ -28,9 +31,9 @@ def _R0_val(i_pt, imin, R0, R1_R0):
     r0 = R0 * _density(imin[i_pt0][i_pt1])
     return r0, R1_R0 * r0
 
+
 @jit(nopython=True, cache=True)
 def _distABtoP(a_pt, b_pt, p_pt):
-
     seg_x = b_pt[0] - a_pt[0]
     seg_y = b_pt[1] - a_pt[1]
 
@@ -61,7 +64,7 @@ def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
             continue
         fi = np.array([0., 0.])
         i_pt = maze_path[i]
-        r0, r1 = _R0_val(i_pt,im, R0, R1_R0)
+        r0, r1 = _R0_val(i_pt, im, R0, R1_R0)
         neighbors = kdtree.query_ball_point(i_pt, r1)
         n_set = set(neighbors)
         for x in neighbors:
@@ -81,5 +84,5 @@ def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
 
     return fi_l
 
-#def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
+# def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
 #    return _attract_repel_segment(s,im,maze_path,kdtree,R0,R1_R0,Fa,chunk)

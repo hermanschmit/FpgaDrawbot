@@ -1,10 +1,11 @@
 __author__ = 'herman'
 
-
 import matplotlib
+
 matplotlib.use('Agg')
 from optparse import OptionParser
 import Segments
+
 
 def initOptions(parser):
     parser.add_option('-n', '--level', dest='level', default=8,
@@ -16,12 +17,14 @@ def initOptions(parser):
     parser.add_option('-m', '--moore', action="store_true", dest="moore", default=False,
                       help=('chooses moore curve rather than Hilbert'))
 
+
 def checkOptions(options, args, parser):
     options.max = 0
     if options.level < 1:
         parser.error('--level must by greater than 0')
     if len(args) > 1:
         parser.error('Only one filename output argument')
+
 
 ########################################
 # These functions refactored from those available at
@@ -33,14 +36,14 @@ def d2xy(n, d, moore=False):
     take a d value in [0, n**2 - 1] and map it to
     an x, y value (e.g. c, r).
     """
-    assert(d <= n**2 - 1)
+    assert (d <= n ** 2 - 1)
     t = d
     x = y = 0
     s = 1
     while s < n:
         rx = 1 & (t // 2)
         ry = 1 & (t ^ rx)
-        if moore and s*2 >= n:
+        if moore and s * 2 >= n:
             x, y = rot_moore(s, x, y, rx, ry)
         else:
             x, y = rot(s, x, y, rx, ry)
@@ -54,12 +57,12 @@ def d2xy(n, d, moore=False):
 
 def xy2d(n, x, y, moore=False):
     d = 0
-    s = n//2
+    s = n // 2
     while s > 0:
         rx = (x & s) > 0
         ry = (y & s) > 0
         d += s * s * ((3 * rx) ^ ry)
-        if moore and s*2 >= n:
+        if moore and s * 2 >= n:
             x, y = rot_mooreI(s, x, y, rx, ry)
         else:
             x, y = rot(s, x, y, rx, ry)
@@ -85,26 +88,28 @@ def rot_moore(n, x, y, rx, ry):
 
     """
     if rx == 0:
-        return n-1-y,x
+        return n - 1 - y, x
     else:
-        return y,n-1-x
+        return y, n - 1 - x
 
 
 def rot_mooreI(n, x, y, rx, ry):
     if rx == 0:
-        return y,n-1-x
+        return y, n - 1 - x
     else:
-        return n-1-y,x
+        return n - 1 - y, x
+
+
 #
 ########################################
 
-def hilbert(args,options):
+def hilbert(args, options):
     seg = Segments.Segments()
     s = []
-    n = (1<<options.level)
-    for d in range(n**2):
-        x,y = d2xy(n, d, options.moore)
-        s.append([x,y])
+    n = (1 << options.level)
+    for d in range(n ** 2):
+        x, y = d2xy(n, d, options.moore)
+        s.append([x, y])
     seg.append(s)
     return seg
 
@@ -116,10 +121,10 @@ def main():
     options, args = parser.parse_args()
     checkOptions(options, args, parser)
 
-
     seg = hilbert(args, options)
     seg.scaleBin()
     seg.binWrite(args[0])
+
 
 if __name__ == '__main__':
     main()

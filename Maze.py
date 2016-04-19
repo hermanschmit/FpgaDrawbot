@@ -1,31 +1,37 @@
-import Segments
-import math
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import sys
-from numba import jit
 import concurrent.futures as cf
-from scipy import spatial
-import Quantization
-import AttractRepel
-from functools import partial
+import math
+import sys
 import timeit
+from functools import partial
+
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
+from numba import jit
+from scipy import spatial
+
+import AttractRepel
 import Hilbert
+import Quantization
+import Segments
+import TSPopt
 
 
 @jit
 def _ptlen_local(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
+
 @jit
 def _ptlen2_local(a, b):
     return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+
 
 @jit
 def _repulse(r):
     force = (r ** 12)
     return force
+
 
 class Maze:
     K0 = 0.1  # [0.1;0.3]
@@ -43,7 +49,7 @@ class Maze:
     R0_B = 10.
 
     PROCESSORS = 4
-    CHUNK = 2000
+    CHUNK = 4000
 
     '''
     Notes
@@ -97,8 +103,8 @@ class Maze:
     @staticmethod
     @jit
     def density(pixel_val):
-        x = 256/(256-pixel_val)
-        #x = 1. + math.log(pixel_val + 1, 2.)
+        x = 256 / (256 - pixel_val)
+        # x = 1. + math.log(pixel_val + 1, 2.)
         return x
 
     def R0_val(self, i_pt):
@@ -157,7 +163,7 @@ class Maze:
                            len(self.boundary_seg) - 1):
                 j_pt = self.boundary_seg[j]
                 jp1_pt = self.boundary_seg[j + 1]
-                pi2xij, xij = self.seg.distABtoP(j_pt, jp1_pt, pi)
+                pi2xij, xij = TSPopt.distABtoP(j_pt, jp1_pt, pi)
                 self.minDist = min(self.minDist, pi2xij)
                 if pi2xij < R1:
                     fij = (pi - xij) / max(0.00001, pi2xij)
@@ -291,8 +297,8 @@ class Maze:
             netmove = np.add(ceil_force, brownian)
 
             tmp2 = np.add(self.maze_path, netmove)
-            tmp3 = [[min(self.bndry_xmax-1,max(self.xmin+1,x)),
-                     min(self.bndry_ymax-1,max(self.ymin+1,y))] for x,y in tmp2]
+            tmp3 = [[min(self.bndry_xmax - 1, max(self.xmin + 1, x)),
+                     min(self.bndry_ymax - 1, max(self.ymin + 1, y))] for x, y in tmp2]
             tmp3[0] = self.maze_path[0]
             tmp3[-1] = self.maze_path[-1]
 
@@ -305,26 +311,36 @@ class Maze:
             if loop_count > loop_bound:
                 break
             loop_count += 1
-            if loop_count % 100 == 0:
+            if loop_count % 10 == 0:
                 elapsed = timeit.default_timer() - start_time
                 start_time = timeit.default_timer()
                 print(str(loop_count) + " " + str(len(self.maze_path)) + " " + str(elapsed))
-            if loop_count % 100 == 0:
-                plt_x = [a[0] for a in self.maze_path]
-                plt_y = [a[1] for a in self.maze_path]
-                plt.imshow(np.transpose(self.imin), cmap=cm.gray)
-                plt.plot(plt_x, plt_y, '-')
-                plt.savefig("fig" + str(loop_count) + ".png")
-                plt.clf()
+            if loop_count % 10 == 0:
+                self.plotMazeImage("fig" + str(loop_count) + ".png")
 
+        self.plotMazeImage("figLast.png", points=True)
+
+    def plotMazeImage(self, name, points=False):
         plt_x = [a[0] for a in self.maze_path]
         plt_y = [a[1] for a in self.maze_path]
-        plt.plot(plt_x, plt_y, '.-')
-        plt.savefig("fig" + str(loop_count) + ".png")
+        plt.imshow(np.transpose(self.imin), cmap=cm.gray)
+        if points:
+            plt.plot(plt_x, plt_y, '.-')
+        else:
+            plt.plot(plt_x, plt_y, '-')
+        plt.savefig(name)
+        plt.clf()
 
     def maze_to_segments(self):
         self.segments = Segments.Segments()
         self.segments.append(self.maze_path)
+
+    def mazeSegmentOptimize(self):
+        while True:
+            delta, self.maze_path = TSPopt.threeOptLocal(self.maze_path,10)
+            print("Local: " + str(delta))
+            if delta == 0:
+                break
 
     def __init__(self, image_matrix, white=1, levels=4, init_shape=1):
         """
@@ -344,32 +360,70 @@ class Maze:
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
-        levels = min(levels,len(self.centroids))
-        levels = max(2,levels)
+        levels = min(levels, len(self.centroids))
+        levels = max(2, levels)
 
         nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
 
-        #self.R0_B = self.density(nq[-1][0])
+        # self.R0_B = self.density(nq[-1][0])
 
         # Initial segment
         if init_shape == 1:
 
             moore = []
             m = []
-            n = 1 << 4
+            n = 1 << 5
             for i in range(0, n ** 2):
                 x, y = Hilbert.d2xy(n, i, True)
-                m.append((x,y))
-                moore.append(((self.imin.shape[0]*x)/(2*n),
-                              (self.imin.shape[1]*y)/(2*n)))
-            m2q = len(moore)//4
+                m.append((x, y))
+                moore.append(((self.imin.shape[0] * x) / (n-1),
+                              (self.imin.shape[1] * y) / (n-1)))
+            '''
+            Rotate the moore graph to start in the middle
+            '''
+
+            m2q = len(moore) // 4
             moore2 = moore[m2q:]
             moore2.extend(moore[:m2q])
 
-            moore3 = [(x+self.imin.shape[0]/4.,y+self.imin.shape[1]/4) for x,y in moore2]
+            '''
+            Add the first and last point to return to start
+            '''
+            ptAlpha = np.multiply(np.array(self.imin.shape),0.5)
+            moore2.append(tuple(ptAlpha))
+            moore2.insert(0,tuple(ptAlpha))
 
+            moore3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in moore2]
             self.maze_path = np.array(moore3)
+
+
+            self.plotMazeImage("figStart0.png")
+            self.maze_path = TSPopt.simplify(self.maze_path)
+            for i in range(5):
+                self.resampling()
+            self.plotMazeImage("figStart1.png")
+            self.maze_path = TSPopt.simplify(self.maze_path)
+
+            while True:
+                delta,seg1 = TSPopt.threeOptLocal(self.maze_path,40)
+                self.maze_path = seg1
+                print("Local: " + str(delta))
+                if delta == 0.:
+                    break
+
+            self.plotMazeImage("figStart2.png")
+            for i in range(5):
+                self.resampling()
+            '''
+            Have to add a brownian to thois because when you do the resample, you could end up with points
+            on the same line, which will lead to a divb0 issue.
+            '''
+
+            brownian = self.brownian()
+            self.maze_path = np.add(self.maze_path,brownian)
+            self.plotMazeImage("figStart3.png")
+
         else:
             self.maze_path = [(0., 0.)]
             segListEnd = tuple([x - 1 for x in self.imin.shape])

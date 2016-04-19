@@ -1,14 +1,16 @@
-import Canny
 import sys
-from scipy import misc
 from time import time
+
+from scipy import misc
+
+import Canny
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = misc.imread(ifile_name, flatten=True)
     t1 = time()
     canny = Canny.Canny(im)
-    print("Canny Done:", time()-t1)
+    print("Canny Done:", time() - t1)
     canny.addInitialStartPt()
     # canny.euclidMstPrune(True,40)
     print(len(canny.segments.segmentList))

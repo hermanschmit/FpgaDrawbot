@@ -8,8 +8,9 @@ import numpy
 from scipy import *
 from scipy import misc
 
-import Segments
 import Quantization
+import Segments
+import TSPopt
 
 
 def d2xy(n, d, moore=False):
@@ -34,6 +35,7 @@ def d2xy(n, d, moore=False):
         t //= 4
         s *= 2
     return x, y
+
 
 def xy2d(n, x, y, moore=False):
     d = 0
@@ -163,109 +165,108 @@ class Hilbert:
         seg234.extend(seg1)
         return seg234
 
-    def twoOpt(self, seg, maxdelta=100):
-        totald = 0
-        for a in range(len(seg) - 4):
-            a_pt = seg[a]
-            b_pt = seg[a + 1]
-            ab_len = ptlen(a_pt, b_pt)
-            for c in range(a + 2, min(a + maxdelta, len(seg) - 2)):
-                c_pt = seg[c]
-                d_pt = seg[c + 1]
-                cd_len = ptlen(c_pt, d_pt)
-                delta = ptlen(a_pt, c_pt) + ptlen(b_pt, d_pt) - ab_len - cd_len
-                if delta < -0.01:
-                    aseg = seg[:a + 1]
-                    bcseg = seg[a + 1:c + 1]
-                    bcseg.reverse()
-                    dseg = seg[c + 1:]
-                    seg = aseg
-                    seg.extend(bcseg)
-                    seg.extend(dseg)
-
-                    a_pt = seg[a]
-                    b_pt = seg[a + 1]
-                    ab_len = ptlen(a_pt, b_pt)
-                    totald += delta
-        return totald, seg
-
-    def threeOpt(self, seg, maxdelta=10):
-        totald = 0
-        for a in range(len(seg) - 6):
-            a_pt = seg[a]
-            b_pt = seg[a + 1]
-            ab_len = ptlen(a_pt, b_pt)
-            for c in range(a + 2, min(a + maxdelta, len(seg) - 4)):
-                c_pt = seg[c]
-                d_pt = seg[c + 1]
-                cd_len = ptlen(c_pt, d_pt)
-                for e in range(c + 2, min(c + maxdelta, len(seg) - 2)):
-                    e_pt = seg[e]
-                    f_pt = seg[e + 1]
-                    ef_len = ptlen(e_pt, f_pt)
-                    orig = ab_len + cd_len + ef_len
-                    ac_len = ptlen(a_pt, c_pt)
-                    ad_len = ptlen(a_pt, d_pt)
-                    ae_len = ptlen(a_pt, e_pt)
-                    bd_len = ptlen(b_pt, d_pt)
-                    be_len = ptlen(b_pt, e_pt)
-                    bf_len = ptlen(b_pt, f_pt)
-                    ce_len = ptlen(c_pt, e_pt)
-                    cf_len = ptlen(c_pt, f_pt)
-                    df_len = ptlen(d_pt, f_pt)
-
-                    acbedf = ac_len + be_len + df_len
-                    adebcf = ad_len + be_len + cf_len
-                    adecbf = ad_len + ce_len + bf_len
-                    aedbcf = ae_len + bd_len + cf_len
-
-                    new = min(acbedf, adebcf, adecbf, aedbcf)
-                    if new - orig < -0.01:
-                        aseg = seg[:a + 1]
-                        bcseg = seg[a + 1:c + 1]
-                        deseg = seg[c + 1:e + 1]
-                        fseg = seg[e + 1:]
-                        if acbedf == new:
-                            bcseg.reverse()
-                            deseg.reverse()
-                            seg = aseg
-                            seg.extend(bcseg)
-                            seg.extend(deseg)
-                            seg.extend(fseg)
-                        elif adebcf == new:
-                            seg = aseg
-                            seg.extend(deseg)
-                            seg.extend(bcseg)
-                            seg.extend(fseg)
-                        elif adecbf == new:
-                            seg = aseg
-                            seg.extend(deseg)
-                            bcseg.reverse()
-                            seg.extend(bcseg)
-                            seg.extend(fseg)
-                        else:
-                            seg = aseg
-                            deseg.reverse()
-                            seg.extend(deseg)
-                            seg.extend(bcseg)
-                            seg.extend(fseg)
-
-                        a_pt = seg[a]
-                        b_pt = seg[a + 1]
-                        ab_len = ptlen(a_pt, b_pt)
-                        c_pt = seg[c]
-                        d_pt = seg[c + 1]
-                        cd_len = ptlen(c_pt, d_pt)
-
-                        totald += (new - orig)
-        return totald, seg
+    # def twoOpt(self, seg, maxdelta=100):
+    #     totald = 0
+    #     for a in range(len(seg) - 4):
+    #         a_pt = seg[a]
+    #         b_pt = seg[a + 1]
+    #         ab_len = ptlen(a_pt, b_pt)
+    #         for c in range(a + 2, min(a + maxdelta, len(seg) - 2)):
+    #             c_pt = seg[c]
+    #             d_pt = seg[c + 1]
+    #             cd_len = ptlen(c_pt, d_pt)
+    #             delta = ptlen(a_pt, c_pt) + ptlen(b_pt, d_pt) - ab_len - cd_len
+    #             if delta < -0.01:
+    #                 aseg = seg[:a + 1]
+    #                 bcseg = seg[a + 1:c + 1]
+    #                 bcseg.reverse()
+    #                 dseg = seg[c + 1:]
+    #                 seg = aseg
+    #                 seg.extend(bcseg)
+    #                 seg.extend(dseg)
+    #
+    #                 a_pt = seg[a]
+    #                 b_pt = seg[a + 1]
+    #                 ab_len = ptlen(a_pt, b_pt)
+    #                 totald += delta
+    #     return totald, seg
+    #
+    # def threeOpt(self, seg, maxdelta=10):
+    #     totald = 0
+    #     for a in range(len(seg) - 6):
+    #         a_pt = seg[a]
+    #         b_pt = seg[a + 1]
+    #         ab_len = ptlen(a_pt, b_pt)
+    #         for c in range(a + 2, min(a + maxdelta, len(seg) - 4)):
+    #             c_pt = seg[c]
+    #             d_pt = seg[c + 1]
+    #             cd_len = ptlen(c_pt, d_pt)
+    #             for e in range(c + 2, min(c + maxdelta, len(seg) - 2)):
+    #                 e_pt = seg[e]
+    #                 f_pt = seg[e + 1]
+    #                 ef_len = ptlen(e_pt, f_pt)
+    #                 orig = ab_len + cd_len + ef_len
+    #                 ac_len = ptlen(a_pt, c_pt)
+    #                 ad_len = ptlen(a_pt, d_pt)
+    #                 ae_len = ptlen(a_pt, e_pt)
+    #                 bd_len = ptlen(b_pt, d_pt)
+    #                 be_len = ptlen(b_pt, e_pt)
+    #                 bf_len = ptlen(b_pt, f_pt)
+    #                 ce_len = ptlen(c_pt, e_pt)
+    #                 cf_len = ptlen(c_pt, f_pt)
+    #                 df_len = ptlen(d_pt, f_pt)
+    #
+    #                 acbedf = ac_len + be_len + df_len
+    #                 adebcf = ad_len + be_len + cf_len
+    #                 adecbf = ad_len + ce_len + bf_len
+    #                 aedbcf = ae_len + bd_len + cf_len
+    #
+    #                 new = min(acbedf, adebcf, adecbf, aedbcf)
+    #                 if new - orig < -0.01:
+    #                     aseg = seg[:a + 1]
+    #                     bcseg = seg[a + 1:c + 1]
+    #                     deseg = seg[c + 1:e + 1]
+    #                     fseg = seg[e + 1:]
+    #                     if acbedf == new:
+    #                         bcseg.reverse()
+    #                         deseg.reverse()
+    #                         seg = aseg
+    #                         seg.extend(bcseg)
+    #                         seg.extend(deseg)
+    #                         seg.extend(fseg)
+    #                     elif adebcf == new:
+    #                         seg = aseg
+    #                         seg.extend(deseg)
+    #                         seg.extend(bcseg)
+    #                         seg.extend(fseg)
+    #                     elif adecbf == new:
+    #                         seg = aseg
+    #                         seg.extend(deseg)
+    #                         bcseg.reverse()
+    #                         seg.extend(bcseg)
+    #                         seg.extend(fseg)
+    #                     else:
+    #                         seg = aseg
+    #                         deseg.reverse()
+    #                         seg.extend(deseg)
+    #                         seg.extend(bcseg)
+    #                         seg.extend(fseg)
+    #
+    #                     a_pt = seg[a]
+    #                     b_pt = seg[a + 1]
+    #                     ab_len = ptlen(a_pt, b_pt)
+    #                     c_pt = seg[c]
+    #                     d_pt = seg[c + 1]
+    #                     cd_len = ptlen(c_pt, d_pt)
+    #
+    #                     totald += (new - orig)
+    #     return totald, seg
 
     def totalLength(self, seg):
         total = 0.
         for a in range(len(seg) - 1):
             total += ptlen(seg[a], seg[a + 1])
         return total
-
 
     def __init__(self, image_matrix, white=1, levels=4):
         """
@@ -284,8 +285,8 @@ class Hilbert:
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
         print(self.centroids)
-        nq = numpy.array([[x*255/(levels-1)] for x in range(0,levels)])
-        self.imin =Quantization.quantMatrix(self.imin,nq,self.centroids)
+        nq = numpy.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
+        self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
 
         misc.imsave("test.png", self.imin)
 
@@ -310,39 +311,62 @@ class Hilbert:
         #             break
 
         d = self.totalLength(self.segments.segmentList[0])
-        for s in range(2,4,2):
-            while True:
-                delta = self.segments.threeOptLoop(maxdelta=s)
-                print(delta)
-                d2 = self.totalLength(self.segments.segmentList[0])
-                assert almost_equal(delta, d2 - d)
-                d = d2
-                if delta == 0:
-                    break
-
         while True:
-            delta = self.segments.threeOptLongs()
-            print(delta)
+            delta, seg2 = TSPopt.threeOptLocal(self.segments.segmentList[0],10)
+            print("Local: " + str(delta))
+            d2 = self.totalLength(seg2)
+            assert almost_equal(delta, d2 - d)
+            d = d2
+            self.segments.segmentList[0] = seg2
             if delta == 0:
                 break
 
         d = self.totalLength(self.segments.segmentList[0])
-        for s in range(2,8,2):
+        for s in range(2, 4, 2):
             while True:
-                delta = self.segments.threeOptLoop(maxdelta=s)
-                print(delta)
-                d2 = self.totalLength(self.segments.segmentList[0])
+                delta, seg2 = TSPopt.threeOptLoop(self.segments.segmentList[0],maxdelta=s)
+                print("Loop(" + str(s) + "): " + str(delta))
+                d2 = self.totalLength(seg2)
                 assert almost_equal(delta, d2 - d)
                 d = d2
+                self.segments.segmentList[0] = seg2
                 if delta == 0:
                     break
 
         # while True:
-        #     delta, seg = self.twoOpt(seg, maxdelta=40)
-        #     print delta
+        #     delta = self.segments.threeOptLongs()
+        #     print("Longs: " + str(delta))
         #     if delta == 0:
         #         break
 
+        d = self.totalLength(self.segments.segmentList[0])
+        for s in range(2, 8, 2):
+            while True:
+                delta,seg2 = TSPopt.threeOptLoop(self.segments.segmentList[0],maxdelta=s)
+                print("Loop2(" + str(s) + "): " + str(delta))
+                d2 = self.totalLength(seg2)
+                assert almost_equal(delta, d2 - d)
+                d = d2
+                self.segments.segmentList[0] = seg2
+                if delta == 0:
+                    break
+
+        d = self.totalLength(self.segments.segmentList[0])
+        while True:
+            delta, seg2 = TSPopt.threeOptLocal(self.segments.segmentList[0],10)
+            print("Local: " + str(delta))
+            d2 = self.totalLength(seg2)
+            assert almost_equal(delta, d2 - d)
+            d = d2
+            self.segments.segmentList[0] = seg2
+            if delta == 0:
+                break
+
+                # while True:
+                #     delta, seg = self.twoOpt(seg, maxdelta=40)
+                #     print delta
+                #     if delta == 0:
+                #         break
 
     def renderGrad(self):
         """

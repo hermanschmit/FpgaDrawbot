@@ -1,29 +1,30 @@
 __author__ = 'herman'
-from scipy.cluster.vq import kmeans, vq
-from scipy import ndimage
-from scipy import misc
-import numpy as np
-from numpy import reshape, uint8, ndarray
 import math
 import random
+
+import numpy as np
+from numpy import reshape, uint8, ndarray
+from scipy import misc
+from scipy import ndimage
+from scipy.cluster.vq import kmeans, vq
 
 
 def botTransform(coords, m, offset, s):
     x = coords[0]
     y = coords[1]
-    f = math.sqrt((m+x)*(m+x) + m + y*y)
-    g = math.sqrt((m-s+x)*(m-s+x) + m + y*y)
-    return f-offset, g-offset
+    f = math.sqrt((m + x) * (m + x) + m + y * y)
+    g = math.sqrt((m - s + x) * (m - s + x) + m + y * y)
+    return f - offset, g - offset
 
 
 def botTransformReverse(coords, m, offset, s):
-    f = coords[0]+offset
-    g = coords[1]+offset
-    x = (f*f-g*g+s*s-2*m*s)/(2*s)
-    mx2 = (m+x)*(m+x)
-    if mx2+m > f*f:
+    f = coords[0] + offset
+    g = coords[1] + offset
+    x = (f * f - g * g + s * s - 2 * m * s) / (2 * s)
+    mx2 = (m + x) * (m + x)
+    if mx2 + m > f * f:
         return float('nan'), float('nan')
-    y = math.sqrt(f*f - mx2 - m)
+    y = math.sqrt(f * f - mx2 - m)
     return x, y
 
 
@@ -34,7 +35,7 @@ def colinear(p0, p1, p2):
 
 
 def neighbor(p0, p1):
-    x, y = abs(p1[0]-p0[0]), abs(p1[1]-p1[0])
+    x, y = abs(p1[0] - p0[0]), abs(p1[1] - p1[0])
     return x <= 1 and y <= 1
 
 
@@ -57,7 +58,6 @@ def simplifysegments(s):
 
 
 class Sketchy:
-
     MAXDELTA = 512
     BASELINE = 1024
     KEEPWHITE = -50
@@ -82,7 +82,7 @@ class Sketchy:
             while x != p1[0]:
                 score += self.score((x, y))
                 if commit:
-                    if self.drawn_mat[x, y] < self.levels-1:
+                    if self.drawn_mat[x, y] < self.levels - 1:
                         self.drawn_mat[x, y] += 1
                 err -= dy
                 if err < 0:
@@ -94,7 +94,7 @@ class Sketchy:
             while y != p1[1]:
                 score += self.score((x, y))
                 if commit:
-                    if self.drawn_mat[x, y] < self.levels-1:
+                    if self.drawn_mat[x, y] < self.levels - 1:
                         self.drawn_mat[x, y] += 1
                 err -= dx
                 if err < 0:
@@ -102,21 +102,21 @@ class Sketchy:
                     err += dy
                 y += sy
         if commit:
-            if self.drawn_mat[x, y] < self.levels-1:
+            if self.drawn_mat[x, y] < self.levels - 1:
                 self.drawn_mat[x, y] += 1
             self.segment.append((x, y))
         score += self.score((x, y))
         return score
 
     def measCentroid(self, mat, levels):
-        pixel = reshape(mat, (mat.shape[0]*mat.shape[1], 1))
+        pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
         centroids, _ = kmeans(pixel, levels)
         print(centroids)
         self.centroids = np.sort(centroids, axis=0)
         print((self.centroids))
 
     def quantMatrix(self, mat):
-        pixel = reshape(mat, (mat.shape[0]*mat.shape[1], 1))
+        pixel = reshape(mat, (mat.shape[0] * mat.shape[1], 1))
         qnt, _ = vq(pixel, self.centroids)
         self.quant_idx = reshape(qnt, (mat.shape[0], mat.shape[1]))
         self.quant_mat = self.centroids[self.quant_idx, 0]
@@ -139,7 +139,7 @@ class Sketchy:
             alpha = self.MAXDELTA / (self.BASELINE * math.sqrt(2.0))
             width = image_matrix.shape[1]
             sc = self.BASELINE * alpha / width
-            self.m = self.BASELINE*(1-alpha)/2
+            self.m = self.BASELINE * (1 - alpha) / 2
             self.imat = misc.imresize(image_matrix, sc)
 
             if transform:
@@ -155,8 +155,8 @@ class Sketchy:
         else:
             self.target_mat = image_matrix[:]
 
-        self.pen = tuple([z/2 for z in self.target_mat.shape])
-        (self.x,self.y) = self.target_mat.shape
+        self.pen = tuple([z / 2 for z in self.target_mat.shape])
+        (self.x, self.y) = self.target_mat.shape
 
         self.segment = []
         self.segmentList = [self.segment]
@@ -169,13 +169,13 @@ class Sketchy:
 
     def draw_line(self):
         best = self.pen
-        for delta in (40,80,120,160):
+        for delta in (40, 80, 120, 160):
             best_val = float("-inf")
             for e in range(self.moveEval):
 
                 newpt = (self.pen[0] + random.randint(-delta, delta), self.pen[1] + random.randint(-delta, delta))
-                newpt = (max(0, min(self.target_mat.shape[0]-1, newpt[0])),
-                         max(0, min(self.target_mat.shape[1]-1, newpt[1])))
+                newpt = (max(0, min(self.target_mat.shape[0] - 1, newpt[0])),
+                         max(0, min(self.target_mat.shape[1] - 1, newpt[1])))
                 s = self.bresenhamScore(self.pen, newpt)
                 if s > best_val:
                     best = newpt
@@ -191,12 +191,12 @@ class Sketchy:
         # Evaluate Moves
 
     def pixelscale(self, pt, maxXY):
-        px = float(pt[0]-self.x//2) / maxXY
+        px = float(pt[0] - self.x // 2) / maxXY
         # py = -1.0 * float(pt[1]-self.y//2) / maxXY
-        py = 1.0 * float(pt[1]-self.y//2) / maxXY
+        py = 1.0 * float(pt[1] - self.y // 2) / maxXY
         return px, py
 
-    def cArrayWrite(self, fname, depth=2**20):
+    def cArrayWrite(self, fname, depth=2 ** 20):
         f = open(fname, 'w')
         numpts = 0
         segmentList_simp = []
@@ -204,34 +204,34 @@ class Sketchy:
             ns = simplifysegments(s)
             segmentList_simp.append(ns)
             numpts += len(ns)
-        if numpts-1 >= depth:
-            print(("Number of points exceeds limit: "+repr(numpts)))
+        if numpts - 1 >= depth:
+            print(("Number of points exceeds limit: " + repr(numpts)))
             raise ValueError
-        f.write("float diag["+repr(depth)+"][2] = {\n")
-        m = max(self.x//2, self.y//2)
+        f.write("float diag[" + repr(depth) + "][2] = {\n")
+        m = max(self.x // 2, self.y // 2)
         i = 0
         for s in segmentList_simp:
             for p in s:
                 x, y = self.pixelscale(p, m)
-                f.write("       {"+repr(y)+", "+repr(x)+"},\n")
+                f.write("       {" + repr(y) + ", " + repr(x) + "},\n")
                 i += 1
-        for j in range(i, depth-1):
+        for j in range(i, depth - 1):
             f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
         f.close()
 
-    def binWrite(self, fname, depth=2**20):
+    def binWrite(self, fname, depth=2 ** 20):
         numpts = 0
         segmentList_simp = []
         for s in self.segmentList:
             ns = simplifysegments(s)
             segmentList_simp.append(ns)
             numpts += len(ns)
-        if numpts-1 >= depth:
-            print(("Number of points exceeds limit: "+repr(numpts)))
+        if numpts - 1 >= depth:
+            print(("Number of points exceeds limit: " + repr(numpts)))
             raise ValueError
-        m = max(self.x//2, self.y//2)
+        m = max(self.x // 2, self.y // 2)
         i = 0
         from array import array
         output_file = open(fname, 'wb')
@@ -241,7 +241,7 @@ class Sketchy:
             for p in s:
                 x, y = self.pixelscale(p, m)
                 l[i] = y
-                l[i+1] = x
+                l[i + 1] = x
                 i += 2
 
         float_array = array('f', l)

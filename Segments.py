@@ -1,14 +1,15 @@
 __author__ = 'herman'
 
 import math
-import numpy
 import sys
-from numba import jit
+
+import numpy
 
 def _hyp(ax, ay, bx, by):
     xdiff = ax - bx
     ydiff = ay - by
     return math.hypot(xdiff, ydiff)
+
 
 def _is_on(a, b, c, tol=1e-5):
     "Return true iff point c intersects the line segment from a to b."
@@ -17,13 +18,16 @@ def _is_on(a, b, c, tol=1e-5):
             and (_within(a[0], c[0], b[0]) if a[0] != b[0] else
                  _within(a[1], c[1], b[1])))
 
+
 def _collinear(a, b, c, tol=1e-5):
     "Return true iff a, b, and c all lie on the same line."
     return abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) < tol
 
+
 def _within(p, q, r):
     "Return true iff q is between p and r (inclusive)."
     return p <= q <= r or r <= q <= p
+
 
 def _simplifysegment(s):
     if len(s) < 3:
@@ -42,15 +46,11 @@ def _simplifysegment(s):
     new_s.append(p2)
     return numpy.array(new_s)
 
-@jit
-def _ptlen_local(a,b):
-    return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
 
 class Segments:
-
-    def __init__(self, max_depth=2**20):
+    def __init__(self, max_depth=2 ** 20):
         self.segmentList = []
         self.xmax = 0
         self.ymax = 0
@@ -78,22 +78,22 @@ class Segments:
             ns = _simplifysegment(s)
             segmentSimp.append(ns)
             numpts += len(ns)
-        if numpts-1 >= self.max_depth:
-            print(("Number of points exceeds limit: "+repr(numpts)))
+        if numpts - 1 >= self.max_depth:
+            print(("Number of points exceeds limit: " + repr(numpts)))
             raise ValueError
         self.numpts = numpts
         self.segmentList = numpy.array(segmentSimp)
 
     def cArrayWrite(self, fname):
         f = open(fname, 'w')
-        f.write("float diag["+repr(self.max_depth)+"][2] = {\n")
+        f.write("float diag[" + repr(self.max_depth) + "][2] = {\n")
         i = 0
         for s in self.segmentList:
             for p in s:
                 # x, y = self.pixelscale(p)
-                f.write("       {"+repr(p[1])+", "+repr(p[0])+"},\n")
+                f.write("       {" + repr(p[1]) + ", " + repr(p[0]) + "},\n")
                 i += 1
-        for j in range(i, self.max_depth-1):
+        for j in range(i, self.max_depth - 1):
             f.write("       {NAN, NAN},\n")
         f.write("       {NAN, NAN}\n")
         f.write(" };\n")
@@ -105,14 +105,14 @@ class Segments:
         for s in self.segmentList:
             for p in s:
                 l[i] = p[1]
-                l[i+1] = p[0]
+                l[i + 1] = p[0]
                 i += 2
         return l
 
     def binWrite(self, fname):
         from array import array
         output_file = open(fname, 'wb')
-        float_array = array('f',self.binList())
+        float_array = array('f', self.binList())
         float_array.tofile(output_file)
         output_file.close()
 
@@ -127,16 +127,16 @@ class Segments:
 
     def flipY(self):
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[self.xmax-p[0]+self.xmin, p[1]] for p in seg]
+            self.segmentList[i] = [[self.xmax - p[0] + self.xmin, p[1]] for p in seg]
 
     def flipX(self):
         for i, seg in enumerate(self.segmentList):
-            self.segmentList[i] = [[p[0], self.ymax-p[1]+self.ymin] for p in seg]
+            self.segmentList[i] = [[p[0], self.ymax - p[1] + self.ymin] for p in seg]
 
     def scale(self, ratio):
         sL = []
         for i, seg in enumerate(self.segmentList):
-            l = [[ratio*p[0],ratio*p[1]] for p in seg]
+            l = [[ratio * p[0], ratio * p[1]] for p in seg]
             sL.append(l)
         self.segmentList = numpy.array(sL)
         self.xmax *= ratio
@@ -145,10 +145,10 @@ class Segments:
         self.ymin *= ratio
 
     def offset(self, xxx_todo_changeme):
-        (dx,dy) = xxx_todo_changeme
+        (dx, dy) = xxx_todo_changeme
         sL = []
         for i, seg in enumerate(self.segmentList):
-            l = [[dx+float(p[0]),dy+float(p[1])] for p in seg]
+            l = [[dx + float(p[0]), dy + float(p[1])] for p in seg]
             sL.append(l)
         self.segmentList = numpy.array(sL)
         self.xmax += dx
@@ -157,26 +157,26 @@ class Segments:
         self.ymin += dy
 
     def scaleBin(self):
-        self.offset((-self.xmin,-self.ymin))
-        scale = 2.0/max(self.xmax,self.ymax)
+        self.offset((-self.xmin, -self.ymin))
+        scale = 2.0 / max(self.xmax, self.ymax)
         self.scale(scale)
-        self.offset((-self.xmax/2,-self.ymax/2))
+        self.offset((-self.xmax / 2, -self.ymax / 2))
 
     def bresenhamFillIn(self, p0, p1, scale=1):
         """
         Bresenham's line algorithm
         """
-        p0_i = (round(p0[0]),round(p0[1]))
-        p1_i = (round(p1[0]),round(p1[1]))
-        dx = scale*abs(p1_i[0] - p0_i[0])
-        dy = scale*abs(p1_i[1] - p0_i[1])
-        x = scale*p0_i[0]
-        y = scale*p0_i[1]
+        p0_i = (round(p0[0]), round(p0[1]))
+        p1_i = (round(p1[0]), round(p1[1]))
+        dx = scale * abs(p1_i[0] - p0_i[0])
+        dy = scale * abs(p1_i[1] - p0_i[1])
+        x = scale * p0_i[0]
+        y = scale * p0_i[1]
         sx = -1 if p0_i[0] > p1_i[0] else 1
         sy = -1 if p0_i[1] > p1_i[1] else 1
         if dx > dy:
             err = dx / 2.0
-            while x != scale*p1_i[0]:
+            while x != scale * p1_i[0]:
                 self.grad[round(x), round(y)] = -1
                 err -= dy
                 if err < 0:
@@ -185,7 +185,7 @@ class Segments:
                 x += sx
         else:
             err = dy / 2.0
-            while y != scale*p1_i[1]:
+            while y != scale * p1_i[1]:
                 self.grad[round(x), round(y)] = -1
                 err -= dx
                 if err < 0:
@@ -194,11 +194,11 @@ class Segments:
                 y += sy
         self.grad[round(x), round(y)] = -1
 
-    def segment2grad(self, interior=False, scale=1, maxsegments=2**20):
-        self.grad = numpy.zeros((scale*(self.xmax+1), scale*(self.ymax+1)), dtype=numpy.int)
+    def segment2grad(self, interior=False, scale=1, maxsegments=2 ** 20):
+        self.grad = numpy.zeros((scale * (self.xmax + 1), scale * (self.ymax + 1)), dtype=numpy.int)
         for s in self.segmentList:
             for p in s:
-                self.grad[round(scale*p[0]), round(scale*p[1])] = -1
+                self.grad[round(scale * p[0]), round(scale * p[1])] = -1
         s0 = self.segmentList[0]
         segcount = 0
         for s1 in self.segmentList[1:]:
@@ -226,159 +226,6 @@ class Segments:
         self.grad[:, :] = 255
         self.grad[x, y] = 0
 
-    @staticmethod
-    @jit
-    def ptlen(a, b):
-        return math.hypot(a[0] - b[0], a[1] - b[1])
-
-    @staticmethod
-    @jit
-    def distanceCombinations(a_pt,b_pt,c_pt,d_pt,e_pt,f_pt):
-        """
-        Partitioned for JIT
-        """
-        ab_len = _ptlen_local(a_pt, b_pt)
-        cd_len = _ptlen_local(c_pt, d_pt)
-        ef_len = _ptlen_local(e_pt, f_pt)
-        ac_len = _ptlen_local(a_pt, c_pt)
-        ad_len = _ptlen_local(a_pt, d_pt)
-        ae_len = _ptlen_local(a_pt, e_pt)
-        bd_len = _ptlen_local(b_pt, d_pt)
-        be_len = _ptlen_local(b_pt, e_pt)
-        bf_len = _ptlen_local(b_pt, f_pt)
-        ce_len = _ptlen_local(c_pt, e_pt)
-        cf_len = _ptlen_local(c_pt, f_pt)
-        df_len = _ptlen_local(d_pt, f_pt)
-
-        abcdef = ab_len + cd_len + ef_len
-        abcedf = ab_len + ce_len + df_len   # 2-opt
-        acbdef = ac_len + bd_len + ef_len   # 2-opt
-        acbedf = ac_len + be_len + df_len
-        adebcf = ad_len + be_len + cf_len
-        adecbf = ad_len + ce_len + bf_len
-        aedbcf = ae_len + bd_len + cf_len
-
-        return abcdef,abcedf,acbdef,acbedf,adebcf,adecbf,aedbcf
-
-    def threeOpt(self, a, c, e):
-        seg0 = self.segmentList[0]
-        a_pt = seg0[a]
-        b_pt = seg0[a + 1]
-        c_pt = seg0[c]
-        d_pt = seg0[c + 1]
-        e_pt = seg0[e]
-        f_pt = seg0[e + 1]
-
-        (orig, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf) = \
-            self.distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt)
-
-        new = min(abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf)
-        if new - orig < -0.01:
-            aseg = seg0[:a + 1]
-            bcseg = seg0[a + 1:c + 1]
-            deseg = seg0[c + 1:e + 1]
-            fseg = seg0[e + 1:]
-            if abcedf == new:
-                seg0 = numpy.concatenate((aseg,
-                                          bcseg,
-                                          numpy.flipud(deseg),
-                                          fseg))
-            elif acbdef == new:
-                seg0 = numpy.concatenate((aseg,
-                                          numpy.flipud(bcseg),
-                                          deseg,
-                                          fseg))
-            elif acbedf == new:
-                seg0 = numpy.concatenate((aseg,
-                                          numpy.flipud(bcseg),
-                                          numpy.flipud(deseg),
-                                          fseg))
-            elif adebcf == new:
-                seg0 = numpy.concatenate((aseg,
-                                          deseg,
-                                          bcseg,
-                                          fseg))
-            elif adecbf == new:
-                seg0 = numpy.concatenate((aseg,
-                                          deseg,
-                                          numpy.flipud(bcseg),
-                                          fseg))
-            else:
-                seg0 = numpy.concatenate((aseg,
-                                          numpy.flipud(deseg),
-                                          bcseg,
-                                          fseg))
-            self.segmentList[0] = seg0
-            return new - orig
-        else:
-            return 0
-
-    def threeOptLoop(self, maxdelta=10):
-        totald = 0
-        assert len(self.segmentList) == 1
-        seg0 = self.segmentList[0]
-        for a in range(len(seg0) - 3):
-            for c in range(a + 1, min(a + maxdelta, len(seg0) - 2)):
-               for e in range(c + 1, min(c + maxdelta, len(seg0) - 1)):
-                   totald += self.threeOpt(a, c, e)
-        return totald
-
-    def threeOptLongs(self, threshold=0.05):
-        assert len(self.segmentList) == 1
-        seg0 = self.segmentList[0]
-        actual_threshold = threshold * math.hypot(self.xmax-self.xmin,
-                                                  self.ymax-self.ymin)
-        totald = 0.
-        for c in range(len(seg0) - 2):
-            c_pt = seg0[c]
-            d_pt = seg0[c + 1]
-            if _ptlen_local(c_pt,d_pt) < actual_threshold:
-                continue
-            print(c, c_pt, d_pt)
-            min_pt = c_pt - 0.01*(d_pt - c_pt)
-            max_pt = d_pt + 0.01*(d_pt - c_pt)
-            print(min_pt, max_pt)
-            for a in range(0, c-1):
-                a_pt = seg0[a]
-                if (a_pt < min_pt).any() or (a_pt > max_pt).any():
-                    continue
-                for e in range(c + 1, len(seg0) - 1):
-                    e_pt = seg0[e]
-                    if (e_pt < min_pt).any() or (e_pt > max_pt).any():
-                        continue
-                    delta = self.threeOpt(a, c, e)
-                    assert delta <= 0.
-                    totald += delta
-                    if delta < 0.0:
-                        break
-            print(totald)
-        return totald
-
-    @staticmethod
-    @jit
-    def distABtoP(a_pt, b_pt, p_pt):
-
-        seg_x = b_pt[0] - a_pt[0]
-        seg_y = b_pt[1] - a_pt[1]
-
-        seglen_sqrd = seg_x * seg_x + seg_y * seg_y
-
-        u = ((p_pt[0] - a_pt[0]) * seg_x + (p_pt[1] - a_pt[1]) * seg_y) / float(seglen_sqrd)
-
-        if u > 1:
-            u = 1
-        elif u < 0:
-            u = 0
-
-        x = a_pt[0] + u * seg_x
-        y = a_pt[1] + u * seg_y
-
-        dx = x - p_pt[0]
-        dy = y - p_pt[1]
-
-        dist = math.sqrt(dx * dx + dy * dy)
-
-        return dist, (x,y)
 
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
@@ -390,22 +237,22 @@ def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
         if col[0] == "DIMENSION:":
             dim = int(col[1])
         elif col[0] == "NAME:" or col[0] == "COMMENT:" or \
-            col[0] == "TYPE:" or col[0] == "EDGE_WEIGHT_TYPE:" or \
-            col[0] == "NODE_COORD_SECTION" or col[0] == "EOF":
+                        col[0] == "TYPE:" or col[0] == "EDGE_WEIGHT_TYPE:" or \
+                        col[0] == "NODE_COORD_SECTION" or col[0] == "EOF":
             pass
         else:
             assert len(col) == 3
             tsp[int(col[0])] = (int(col[1]), int(col[2]))
     f1.close()
-    f2 = open(ifile_sol,'r')
+    f2 = open(ifile_sol, 'r')
     seg = []
     for line in f2:
         col = line.split()
         if col[0] == "DIMENSION:":
             assert dim == int(col[1])
         elif col[0] == "NAME:" or col[0] == "COMMENT:" or \
-            col[0] == "TYPE:" or \
-            col[0] == "TOUR_SECTION" or col[0] == "EOF":
+                        col[0] == "TYPE:" or \
+                        col[0] == "TOUR_SECTION" or col[0] == "EOF":
             pass
         else:
             assert len(col) == 1

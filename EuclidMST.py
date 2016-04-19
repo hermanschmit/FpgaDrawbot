@@ -1,11 +1,9 @@
-import scipy
-from scipy.spatial import Delaunay
-from scipy.sparse import csr_matrix, lil_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
-from scipy.sparse.csgraph import depth_first_order
-
 import numpy
-import math
+import scipy
+from scipy.sparse import lil_matrix
+from scipy.sparse.csgraph import depth_first_order
+from scipy.sparse.csgraph import minimum_spanning_tree
+from scipy.spatial import Delaunay
 
 
 def hyp(ax, ay, bx, by):
