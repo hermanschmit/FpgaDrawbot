@@ -2,13 +2,14 @@ import concurrent.futures as cf
 import math
 import sys
 import timeit
+import statistics
 from functools import partial
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from numba import jit
-from scipy import spatial
+from scipy import spatial,stats
 
 import AttractRepel
 import Hilbert
@@ -47,9 +48,9 @@ class Maze:
     R0 = 2.
     R1_R0 = 2.5
     R0_B = 10.
-
-    PROCESSORS = 4
+    TAKEN_SAMPLE_SIZE = 20
     CHUNK = 4000
+    PROCESSORS = 4
 
     '''
     Notes
@@ -200,6 +201,8 @@ class Maze:
         if skip:
             tmp3.append(ptB)
         self.maze_path = tmp3
+        self.lenList.append(len(self.maze_path))
+
 
     def optimize_loop1(self, loop_bound):
         # Main optimize loop
@@ -262,7 +265,7 @@ class Maze:
         plt.plot(plt_x, plt_y, '.-')
         plt.savefig("fig" + str(loop_count) + ".png")
 
-    def optimize_loop2(self, loop_bound):
+    def optimize_loop2(self, loop_bound=1000, img_dump = 100, equil=1.025, tsp=100):
         # Main optimize loop
         # keep running until stopping criteria met
         loop_count = 0
@@ -306,19 +309,75 @@ class Maze:
 
             # resampling
             self.resampling()
-
             # stopping criteria
             if loop_count > loop_bound:
                 break
-            loop_count += 1
-            if loop_count % 10 == 0:
+
+            if self.stopping(equil):
+                break
+
+            if loop_count % tsp == 0:
+                while True:
+                    delta,seg1 = TSPopt.threeOptLocal(self.maze_path,30)
+                    self.maze_path = seg1
+                    print("TSP: " + str(delta))
+                    if delta == 0.:
+                        break
+
+            if loop_count % img_dump == 0:
+                self.plotMazeImage("fig" + str(loop_count) + ".png")
                 elapsed = timeit.default_timer() - start_time
                 start_time = timeit.default_timer()
                 print(str(loop_count) + " " + str(len(self.maze_path)) + " " + str(elapsed))
-            if loop_count % 10 == 0:
-                self.plotMazeImage("fig" + str(loop_count) + ".png")
+
+            loop_count += 1
 
         self.plotMazeImage("figLast.png", points=True)
+
+    def stopping(self,equil_ratio):
+        if len(self.lenList) > 40:
+            stddev = statistics.stdev(self.lenList[-40:])
+            mean = statistics.mean(self.lenList[-40:])
+            slope,_,_,_,_ = stats.linregress(range(40),self.lenList[-40:])
+            #print("slope: "+str(slope))
+            #print("stddev/mean: " + str(stddev/mean))
+            if stddev/mean < 0.005 and slope < 4.:
+                return True
+            return False
+        return False
+
+
+    def equilibrium(self,equil_ratio, delta):
+        if self.upCount+ self.dnCount < self.TAKEN_SAMPLE_SIZE:
+            if delta < 0.:
+                self.dnCount += 1
+                self.dnSum += delta
+            elif delta > 0.:
+                self.upCount += 1
+                self.upSum += delta
+            return False
+        else:
+            if self.dnCount == 0 or self.upCount == 0:
+                print("No Equil Check")
+                print(self.upCount,self.upSum,self.dnCount,self.dnSum)
+                self.upCount = 0
+                self.dnCount = 0
+                self.upSum = 0.
+                self.dnSum = 0.
+                return False
+            dnAvg = -1.*self.dnSum/self.dnCount
+            upAvg = self.upSum/self.upCount
+            self.upCount = 0
+            self.dnCount = 0
+            self.upSum = 0.
+            self.dnSum = 0.
+            print("equil: "+str(upAvg)+" "+str(dnAvg))
+            if dnAvg < upAvg and upAvg/dnAvg < equil_ratio or \
+                dnAvg >= upAvg and dnAvg/upAvg < equil_ratio :
+                return True
+            else:
+                print("Equil Fail")
+                return False
 
     def plotMazeImage(self, name, points=False):
         plt_x = [a[0] for a in self.maze_path]
@@ -347,6 +406,13 @@ class Maze:
         :param image_matrix:
         """
 
+        self.dnCount=0
+        self.dnSum=0.
+        self.upCount=0
+        self.upSum=0.
+
+        self.lenList = list()
+
         self.imin = image_matrix
         self.xmin = 0
         self.ymin = 0
@@ -356,6 +422,8 @@ class Maze:
         # whiten
         self.imin /= white
         self.imin += 255 - (255 // white)
+
+
 
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
