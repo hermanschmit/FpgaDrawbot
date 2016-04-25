@@ -4,7 +4,7 @@ import numpy as np
 from numba import jit
 
 
-@jit("float64(float64)", nopython=True, cache=True)
+#@jit("float64(float64)", nopython=True, cache=True)
 def _LennardJones(r):
     force = (r ** 12 - r ** 6)
     return force
@@ -54,6 +54,9 @@ def _distABtoP(a_pt, b_pt, p_pt):
 
     dist = math.sqrt(dx * dx + dy * dy)
 
+    if dist == 0:
+        dist = 1e-10
+
     return dist, (x, y)
 
 
@@ -84,5 +87,37 @@ def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
 
     return fi_l
 
+
+@jit
+def _repulse(r):
+    force = (r ** 12)
+    return force
+
+
 # def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
 #    return _attract_repel_segment(s,im,maze_path,kdtree,R0,R1_R0,Fa,chunk)
+
+def boundary(r0_b, Fo, maze_path, boundary_seg):
+    """
+    This is the brute force version
+    Returns:
+    """
+    rArray = np.empty([len(maze_path), 2])
+
+    R1 = 2.0 * r0_b
+
+    for i in range(0,
+                   len(maze_path)):
+        fi = np.array([0., 0.])
+        pi = np.array(maze_path[i])
+        for j in range(0,
+                       len(boundary_seg) - 1):
+            j_pt = boundary_seg[j]
+            jp1_pt = boundary_seg[j + 1]
+            pi2xij, xij = _distABtoP(j_pt, jp1_pt, pi)
+            if pi2xij < R1:
+                fij = (pi - xij) / max(0.00001, pi2xij)
+                fij *= _repulse(r0_b / pi2xij) * Fo
+                fi += fij
+        rArray[i] = np.array(fi)
+    return rArray

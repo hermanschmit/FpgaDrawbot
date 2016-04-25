@@ -71,21 +71,21 @@ class Maze:
         assert v < 256
         return float(v + 1) / 256.
 
+    @jit(cache=True)
     def brownian(self):
         mean = [0., 0.]
         cov = [[1., 0.], [0., 1.]]
         size = len(self.maze_path)
         x, y = np.random.multivariate_normal(mean, cov, size).T
         z = list(zip(x, y))
-        brown = []
+        brownA = np.empty([size,2])
         for i, zi in enumerate(z):
             n = np.array(zi)
-            # n = np.multiply(n, self.Fb*self.delta(i)*self.D)
             n = np.multiply(n, self.Fb)
-            brown.append(n)
-        assert len(brown) == len(self.maze_path)
-        return np.array(brown)
+            brownA[i] = n
+        return brownA
 
+    @jit(cache=True)
     def faring(self):
         null = (0., 0.)
         fare = [null]  # initial element
@@ -107,7 +107,7 @@ class Maze:
         x = 256 / (256 - pixel_val)
         # x = 1. + math.log(pixel_val + 1, 2.)
         return x
-
+    @jit
     def R0_val(self, i_pt):
         i_pt0 = max(min(round(i_pt[0]), self.imin.shape[0] - 1), 0)
         i_pt1 = max(min(round(i_pt[1]), self.imin.shape[1] - 1), 0)
@@ -147,13 +147,14 @@ class Maze:
             returnList.extend(fi_l)
         return np.array(returnList)
 
+    @jit
     def boundary_slow(self):
         """
         This is the brute force version
         Returns:
         attract repel vector
         """
-        returnList = []
+        returnA = np.empty([len(self.maze_path),2])
         R1 = 2.0 * self.R0_B
 
         for i in range(0,
@@ -170,9 +171,9 @@ class Maze:
                     fij = (pi - xij) / max(0.00001, pi2xij)
                     fij *= _repulse(self.R0_B / pi2xij) * self.Fo
                     fi += fij
-            returnList.append(fi)
-        assert len(returnList) == len(self.maze_path)
-        return np.array(returnList)
+            returnA[i] = fi
+
+        return returnA
 
     def resampling(self):
         tmp3 = []
@@ -202,68 +203,6 @@ class Maze:
             tmp3.append(ptB)
         self.maze_path = tmp3
         self.lenList.append(len(self.maze_path))
-
-
-    def optimize_loop1(self, loop_bound):
-        # Main optimize loop
-        # keep running until stopping criteria met
-        loop_count = 0
-        while True:
-
-            # BIG
-            self.minDist = sys.float_info.max
-            # compute force on each node
-            brownian = self.brownian()
-            if len(self.maze_path) < self.CHUNK:
-                attract_repel = self.attract_repel_serial()
-            else:
-                attract_repel = self.attract_repel_parallel()
-            fairing = self.faring()
-            boundary = self.boundary_slow()
-
-            # move each node
-            netforce = np.add(boundary, np.add(fairing, attract_repel))
-            # netforce = np.add(boundary,np.add(fairing,np.add(brownian, attract_repel)))
-            # netforce = np.add(fairing,np.add(brownian, attract_repel))
-            deltaforce = [np.hypot(a[0], a[1]) for a in netforce]
-            maxdelta = np.max(deltaforce)
-            assert self.minDist / maxdelta > 0.0
-            if maxdelta > 1. * self.minDist:
-                netforce = np.multiply(netforce, 1. * self.minDist / maxdelta)
-            netmove = np.multiply(netforce, 1.)
-
-            # don't scale noise by size maxdelta
-
-            netmove = np.add(netmove, brownian)
-
-            tmp2 = np.add(self.maze_path, netmove)
-            tmp2[0] = self.maze_path[0]
-            tmp2[-1] = self.maze_path[-1]
-            self.maze_path = tmp2
-
-            # resampling
-            self.resampling()
-            test1 = self.maze_path[-1]
-            test2 = np.array((float(self.xmax), float(self.ymax)))
-            assert np.array_equal(test1, test2)
-            # stopping criteria
-            if loop_count > loop_bound:
-                break
-            loop_count += 1
-            if loop_count % 100 == 0:
-                print(str(loop_count) + " " + str(len(self.maze_path)))
-            if loop_count % 200 == 1:
-                plt_x = [a[0] for a in self.maze_path]
-                plt_y = [a[1] for a in self.maze_path]
-                plt.imshow(np.transpose(self.imin), cmap=cm.Greys)
-                plt.plot(plt_x, plt_y, '.-')
-                plt.savefig("fig" + str(loop_count) + ".png")
-                plt.clf()
-
-        plt_x = [a[0] for a in self.maze_path]
-        plt_y = [a[1] for a in self.maze_path]
-        plt.plot(plt_x, plt_y, '.-')
-        plt.savefig("fig" + str(loop_count) + ".png")
 
     def optimize_loop2(self, loop_bound=1000, img_dump = 100, equil=1.025, tsp=100):
         # Main optimize loop
@@ -320,7 +259,7 @@ class Maze:
                 while True:
                     delta,seg1 = TSPopt.threeOptLocal(self.maze_path,30)
                     self.maze_path = seg1
-                    print("TSP: " + str(delta))
+                    #print("TSP: " + str(delta))
                     if delta == 0.:
                         break
 
@@ -338,10 +277,11 @@ class Maze:
         if len(self.lenList) > 40:
             stddev = statistics.stdev(self.lenList[-40:])
             mean = statistics.mean(self.lenList[-40:])
-            slope,_,_,_,_ = stats.linregress(range(40),self.lenList[-40:])
+            slope,_,rval,_,_ = stats.linregress(range(40),self.lenList[-40:])
             #print("slope: "+str(slope))
+            #print("r2: "+str(rval**2))
             #print("stddev/mean: " + str(stddev/mean))
-            if stddev/mean < 0.005 and slope < 4.:
+            if stddev/mean < 0.0025 and slope < 2.:
                 return True
             return False
         return False
@@ -396,8 +336,7 @@ class Maze:
 
     def mazeSegmentOptimize(self):
         while True:
-            delta, self.maze_path = TSPopt.threeOptLocal(self.maze_path,10)
-            print("Local: " + str(delta))
+            delta, self.maze_path = TSPopt.threeOptLocal(self.maze_path,15)
             if delta == 0:
                 break
 
@@ -441,7 +380,7 @@ class Maze:
 
             moore = []
             m = []
-            n = 1 << 5
+            n = 1 << 7
             for i in range(0, n ** 2):
                 x, y = Hilbert.d2xy(n, i, True)
                 m.append((x, y))
@@ -468,7 +407,7 @@ class Maze:
 
             self.plotMazeImage("figStart0.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
-            for i in range(5):
+            for i in range(10):
                 self.resampling()
             self.plotMazeImage("figStart1.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
@@ -476,12 +415,11 @@ class Maze:
             while True:
                 delta,seg1 = TSPopt.threeOptLocal(self.maze_path,40)
                 self.maze_path = seg1
-                print("Local: " + str(delta))
                 if delta == 0.:
                     break
 
             self.plotMazeImage("figStart2.png")
-            for i in range(5):
+            for i in range(10):
                 self.resampling()
             '''
             Have to add a brownian to thois because when you do the resample, you could end up with points

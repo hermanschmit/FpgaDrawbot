@@ -8,7 +8,7 @@ import Maze
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = misc.imread(ifile_name, flatten=True)
-    m = Maze.Maze(im)
+    m = Maze.Maze(im,levels=5)
     m.optimize_loop2(1000,10,1.025,10)
     m.mazeSegmentOptimize()
     m.maze_to_segments()
