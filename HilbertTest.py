@@ -123,7 +123,8 @@ def main():
 
     seg = hilbert(args, options)
     seg.scaleBin()
-    seg.binWrite(args[0])
+    #seg.binWrite(args[0])
+    seg.cArrayWrite(args[0])
 
 
 if __name__ == '__main__':
