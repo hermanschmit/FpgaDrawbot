@@ -9,7 +9,7 @@ import Canny
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = misc.imread(ifile_name, flatten=True)
     t1 = time()
-    canny = Canny.Canny(im,sigma=2.25)
+    canny = Canny.Canny(im,sigma=1.0)
     print("Canny Done:", time() - t1)
     canny.addInitialStartPt()
     # canny.euclidMstPrune(True,40)
@@ -23,6 +23,8 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     canny.segments.renderGrad()
     im = canny.segments.grad
     misc.imsave(ofile_name1, im)
+    canny.segments.svgwrite("test.svg")
+
     canny.segments.scaleBin()
     canny.binWrite(bin_fn)
 

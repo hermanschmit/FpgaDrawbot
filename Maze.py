@@ -372,6 +372,9 @@ class Maze:
 
         nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
+        plt.imshow(self.imin, cmap=cm.gray)
+        plt.savefig("figStartOrig.png")
+        plt.clf()
 
         # self.R0_B = self.density(nq[-1][0])
 

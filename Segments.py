@@ -2,6 +2,7 @@ __author__ = 'herman'
 
 import math
 import sys
+import svgwrite
 
 import numpy
 
@@ -225,6 +226,19 @@ class Segments:
         x, y = numpy.where(self.grad == -1)
         self.grad[:, :] = 255
         self.grad[x, y] = 0
+
+    def svgwrite(self, fn):
+        dwg = svgwrite.Drawing(fn, profile='tiny')
+        i = (float(self.ymin),float(self.xmin))
+        s = (float(self.ymax-self.ymin),float(self.xmax-self.xmin))
+        dwg.add(dwg.rect(insert=i, size=s, fill='white'))
+        l = []
+        for s0 in self.segmentList:
+            for p1 in s0:
+                t = (float(p1[1]),float(p1[0]))
+                l.append(t)
+        dwg.add(dwg.polyline(l,stroke='black', fill='none', stroke_width=0.5))
+        dwg.save()
 
 
 

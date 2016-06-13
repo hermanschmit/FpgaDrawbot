@@ -9,8 +9,8 @@ class Sketchy_BotTransformRaw1(TestCase):
         pass
 
 
-class TestSketchy_transform1(Sketchy_BotTransformRaw1):
-    def runTest(self):
-        c = (700, 700)
-        x, y = Sketchy.botTransformReverse(c, 0, 0, 1000)
-        print((x, y))
+#class TestSketchy_transform1(Sketchy_BotTransformRaw1):
+#    def runTest(self):
+#        c = (700, 700)
+#        x, y = Sketchy.botTransformReverse(c, 0, 0, 1000)
+#        print((x, y))

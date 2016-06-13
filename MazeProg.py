@@ -9,7 +9,8 @@ import Maze
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = misc.imread(ifile_name, flatten=True)
     m = Maze.Maze(im,levels=5)
-    m.optimize_loop2(500,10,1.025,10)
+    #m.optimize_loop2(500,10,1.025,10)
+    m.optimize_loop2(100,5,2,20)
     m.mazeSegmentOptimize()
     m.maze_to_segments()
     m.segments.segment2grad(interior=True, scale=2)
@@ -18,6 +19,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     misc.imsave(ofile_name1, im)
     m.segments.scaleBin()
     m.segments.binWrite(bin_fn)
+    m.segments.svgwrite("test.svg")
 
 
 if __name__ == "__main__":

@@ -14,10 +14,10 @@ class Maze_identity40(TestCase):
         im = 100. * im
         self.MazeInst = Maze(im)
 
-class Maze0(Maze_identity40):
-    def runTest(self):
-        self.MazeInst.optimize_loop2(5)
-        pass
+#class Maze0(Maze_identity40):
+#    def runTest(self):
+#        self.MazeInst.optimize_loop2(5)
+#        pass
 
 class Maze_identity100(TestCase):
     def setUp(self):
@@ -27,10 +27,10 @@ class Maze_identity100(TestCase):
         im = 100. * im
         self.MazeInst = Maze(im)
 
-class Maze1b(Maze_identity100):
-    def runTest(self):
-        self.MazeInst.optimize_loop2(5)
-        pass
+#class Maze1b(Maze_identity100):
+#    def runTest(self):
+#        self.MazeInst.optimize_loop2(5)
+#        pass
 
 class Maze_seg1(TestCase):
     def setUp(self):

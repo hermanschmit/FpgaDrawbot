@@ -41,6 +41,7 @@ class SegmentsInst0Test0(SegmentsInst0):
         self.seg.offset((-0.5 * self.seg.xmax, -0.5 * self.seg.ymax))
         self.assertEqual(self.seg.ymax, 1.0)
         self.assertEqual(self.seg.ymin, -0.6)
+        self.seg.svgwrite("test.svg")
 
 class SegmentsInst0Test1(SegmentsInst0):
     def runTest(self):
