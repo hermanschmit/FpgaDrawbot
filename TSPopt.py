@@ -79,7 +79,7 @@ def distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt):
     return abcdef, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf
 
 @jit
-def threeOpt(seg0, a, c, e):
+def threeOpt(seg0, a, c, e, twoOpt=False):
     a_pt = seg0[a]
     b_pt = seg0[a + 1]
     c_pt = seg0[c]
@@ -90,7 +90,10 @@ def threeOpt(seg0, a, c, e):
     (orig, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf) = \
         distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt)
 
-    new = min(abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf)
+    if twoOpt:
+        new = min(abcedf, acbdef)
+    else:
+        new = min(abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf)
     if new - orig < -0.01:
         aseg = seg0[:a + 1]
         bcseg = seg0[a + 1:c + 1]
@@ -121,11 +124,13 @@ def threeOpt(seg0, a, c, e):
                                       deseg,
                                       numpy.flipud(bcseg),
                                       fseg))
-        else:
+        elif aedbcf == new:
             seg0 = numpy.concatenate((aseg,
                                       numpy.flipud(deseg),
                                       bcseg,
                                       fseg))
+        else:
+            assert(False)
         return new - orig, seg0
     else:
         return 0, seg0
@@ -141,7 +146,7 @@ def threeOptLoop(seg0, maxdelta=10):
     return totald, seg0
 
 #@jit
-def threeOptLocal(seg0, nn=5):
+def threeOptLocal(seg0, nn=5, twoOpt=False):
     totald = 0
     kdtree = spatial.cKDTree(seg0)
     for a in range(len(seg0) - 1):
@@ -157,7 +162,7 @@ def threeOptLocal(seg0, nn=5):
                     continue
                 if e + 1 == len(seg0):
                     continue
-                delta,seg0 = threeOpt(seg0, a, c, e)
+                delta,seg0 = threeOpt(seg0, a, c, e, twoOpt=twoOpt)
                 totald += delta
                 if delta < 0:
                     kdtree = spatial.cKDTree(seg0)

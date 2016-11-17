@@ -3,7 +3,7 @@ __author__ = 'herman'
 import math
 import sys
 import svgwrite
-
+import xml.etree.ElementTree as etree
 import numpy
 
 def _hyp(ax, ay, bx, by):
@@ -237,10 +237,27 @@ class Segments:
             for p1 in s0:
                 t = (float(p1[1]),float(p1[0]))
                 l.append(t)
-        dwg.add(dwg.polyline(l,stroke='black', fill='none', stroke_width=0.5))
+        path = svgwrite.path.Path("M %d,%d" % l[0], fill='none', stroke='black', stroke_width=0.5)
+        for x in l[1:]:
+            path.push(" %d,%d" % x)
+        # dwg.add(dwg.polyline(l,stroke='black', fill='none', stroke-width=0.5))
+        dwg.add(path)
         dwg.save()
 
-
+    def svgread(self, fn):
+        tree = etree.parse(fn)
+        root = tree.getroot()
+        lc=[]
+        for path in root.findall('{http://www.w3.org/2000/svg}path'):
+            t = path.attrib['d']
+            tl = t.split(' ')
+            for tle in tl[1:]:
+                coord_str = tle.split(',')
+                if len(coord_str) == 2:
+                    coord_str.reverse()
+                    coord_flt = [float(e) for e in coord_str]
+                    lc.append(coord_flt)
+        self.append(lc)
 
 def main_tsp(ifile_tsp, ifile_sol, bin_fn="bfile.bin"):
     s = Segments()

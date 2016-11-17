@@ -4,6 +4,7 @@ from time import time
 from scipy import misc
 
 import Canny
+import Segments
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
@@ -24,7 +25,11 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = canny.segments.grad
     misc.imsave(ofile_name1, im)
     canny.segments.svgwrite("test.svg")
+    segNew = Segments.Segments()
+    segNew.svgread("test.svg")
+    segNew.svgwrite("test2.svg")
 
+    #canny.segments.svgread("test.svg")
     canny.segments.scaleBin()
     canny.binWrite(bin_fn)
 

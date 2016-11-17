@@ -1,15 +1,15 @@
 import concurrent.futures as cf
 import math
+import statistics
 import sys
 import timeit
-import statistics
 from functools import partial
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from numba import jit
-from scipy import spatial,stats
+from scipy import spatial, stats
 
 import AttractRepel
 import Hilbert
@@ -78,7 +78,7 @@ class Maze:
         size = len(self.maze_path)
         x, y = np.random.multivariate_normal(mean, cov, size).T
         z = list(zip(x, y))
-        brownA = np.empty([size,2])
+        brownA = np.empty([size, 2])
         for i, zi in enumerate(z):
             n = np.array(zi)
             n = np.multiply(n, self.Fb)
@@ -107,6 +107,7 @@ class Maze:
         x = 256 / (256 - pixel_val)
         # x = 1. + math.log(pixel_val + 1, 2.)
         return x
+
     @jit
     def R0_val(self, i_pt):
         i_pt0 = max(min(round(i_pt[0]), self.imin.shape[0] - 1), 0)
@@ -154,7 +155,7 @@ class Maze:
         Returns:
         attract repel vector
         """
-        returnA = np.empty([len(self.maze_path),2])
+        returnA = np.empty([len(self.maze_path), 2])
         R1 = 2.0 * self.R0_B
 
         for i in range(0,
@@ -204,7 +205,7 @@ class Maze:
         self.maze_path = tmp3
         self.lenList.append(len(self.maze_path))
 
-    def optimize_loop2(self, loop_bound=1000, img_dump = 100, equil=1.025, tsp=100):
+    def optimize_loop2(self, loop_bound=1000, img_dump=100, equil=1.025, tsp=10):
         # Main optimize loop
         # keep running until stopping criteria met
         loop_count = 0
@@ -257,9 +258,9 @@ class Maze:
 
             if loop_count % tsp == 0:
                 while True:
-                    delta,seg1 = TSPopt.threeOptLocal(self.maze_path,30)
+                    delta, seg1 = TSPopt.threeOptLocal(self.maze_path, 30)
                     self.maze_path = seg1
-                    #print("TSP: " + str(delta))
+                    print("TSP: " + str(delta) + " loop: " + str(loop_count))
                     if delta == 0.:
                         break
 
@@ -273,22 +274,21 @@ class Maze:
 
         self.plotMazeImage("figLast.png", points=True)
 
-    def stopping(self,equil_ratio):
+    def stopping(self, equil_ratio):
         if len(self.lenList) > 40:
             stddev = statistics.stdev(self.lenList[-40:])
             mean = statistics.mean(self.lenList[-40:])
-            slope,_,rval,_,_ = stats.linregress(range(40),self.lenList[-40:])
-            #print("slope: "+str(slope))
-            #print("r2: "+str(rval**2))
-            #print("stddev/mean: " + str(stddev/mean))
-            if stddev/mean < 0.0025 and slope < 2.:
+            slope, _, rval, _, _ = stats.linregress(range(40), self.lenList[-40:])
+            # print("slope: "+str(slope))
+            # print("r2: "+str(rval**2))
+            # print("stddev/mean: " + str(stddev/mean))
+            if stddev / mean < 0.0025 and slope < 2.:
                 return True
             return False
         return False
 
-
-    def equilibrium(self,equil_ratio, delta):
-        if self.upCount+ self.dnCount < self.TAKEN_SAMPLE_SIZE:
+    def equilibrium(self, equil_ratio, delta):
+        if self.upCount + self.dnCount < self.TAKEN_SAMPLE_SIZE:
             if delta < 0.:
                 self.dnCount += 1
                 self.dnSum += delta
@@ -299,21 +299,21 @@ class Maze:
         else:
             if self.dnCount == 0 or self.upCount == 0:
                 print("No Equil Check")
-                print(self.upCount,self.upSum,self.dnCount,self.dnSum)
+                print(self.upCount, self.upSum, self.dnCount, self.dnSum)
                 self.upCount = 0
                 self.dnCount = 0
                 self.upSum = 0.
                 self.dnSum = 0.
                 return False
-            dnAvg = -1.*self.dnSum/self.dnCount
-            upAvg = self.upSum/self.upCount
+            dnAvg = -1. * self.dnSum / self.dnCount
+            upAvg = self.upSum / self.upCount
             self.upCount = 0
             self.dnCount = 0
             self.upSum = 0.
             self.dnSum = 0.
-            print("equil: "+str(upAvg)+" "+str(dnAvg))
-            if dnAvg < upAvg and upAvg/dnAvg < equil_ratio or \
-                dnAvg >= upAvg and dnAvg/upAvg < equil_ratio :
+            print("equil: " + str(upAvg) + " " + str(dnAvg))
+            if dnAvg < upAvg and upAvg / dnAvg < equil_ratio or \
+                                    dnAvg >= upAvg and dnAvg / upAvg < equil_ratio:
                 return True
             else:
                 print("Equil Fail")
@@ -336,19 +336,19 @@ class Maze:
 
     def mazeSegmentOptimize(self):
         while True:
-            delta, self.maze_path = TSPopt.threeOptLocal(self.maze_path,15)
+            delta, self.maze_path = TSPopt.threeOptLocal(self.maze_path, 40)
             if delta == 0:
                 break
 
-    def __init__(self, image_matrix, white=1, levels=4, init_shape=1):
+    def __init__(self, image_matrix, white=1, levels=4, init_shape=3):
         """
         :param image_matrix:
         """
 
-        self.dnCount=0
-        self.dnSum=0.
-        self.upCount=0
-        self.upSum=0.
+        self.dnCount = 0
+        self.dnSum = 0.
+        self.upCount = 0
+        self.upSum = 0.
 
         self.lenList = list()
 
@@ -361,8 +361,6 @@ class Maze:
         # whiten
         self.imin /= white
         self.imin += 255 - (255 // white)
-
-
 
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
@@ -387,8 +385,8 @@ class Maze:
             for i in range(0, n ** 2):
                 x, y = Hilbert.d2xy(n, i, True)
                 m.append((x, y))
-                moore.append(((self.imin.shape[0] * x) / (n-1),
-                              (self.imin.shape[1] * y) / (n-1)))
+                moore.append(((self.imin.shape[0] * x) / (n - 1),
+                              (self.imin.shape[1] * y) / (n - 1)))
             '''
             Rotate the moore graph to start in the middle
             '''
@@ -400,13 +398,12 @@ class Maze:
             '''
             Add the first and last point to return to start
             '''
-            ptAlpha = np.multiply(np.array(self.imin.shape),0.5)
+            ptAlpha = np.multiply(np.array(self.imin.shape), 0.5)
             moore2.append(tuple(ptAlpha))
-            moore2.insert(0,tuple(ptAlpha))
+            moore2.insert(0, tuple(ptAlpha))
 
             moore3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in moore2]
             self.maze_path = np.array(moore3)
-
 
             self.plotMazeImage("figStart0.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
@@ -416,7 +413,7 @@ class Maze:
             self.maze_path = TSPopt.simplify(self.maze_path)
 
             while True:
-                delta,seg1 = TSPopt.threeOptLocal(self.maze_path,40)
+                delta, seg1 = TSPopt.threeOptLocal(self.maze_path, 40)
                 self.maze_path = seg1
                 if delta == 0.:
                     break
@@ -430,8 +427,56 @@ class Maze:
             '''
 
             brownian = self.brownian()
-            self.maze_path = np.add(self.maze_path,brownian)
+            self.maze_path = np.add(self.maze_path, brownian)
             self.plotMazeImage("figStart3.png")
+
+        elif init_shape == 2:
+            import LSystem
+
+            gosper = LSystem.LSystem(axiom='B',
+                                     rules=[('A', 'A-B--B+A++AA+B-'),
+                                            ('B', '+A-BB--B-A++A+B')],
+                                     angle=60.0)
+
+            gosper.iterate(5)
+            self.maze_path = np.array(gosper.segment(initialpt=[200.0, 600.0], d=4.0))
+            self.plotMazeImage("figStartGosper0.png")
+
+        elif init_shape == 3:
+            import LSystem
+
+            fass2 = LSystem.LSystem(axiom="FX",
+                                    rules=[('X','Y-LFL-FRF-LFLFL-FRFR+F'),
+                                           ('Y','X+RFR+FLF+RFRFR+FLFL-F'),
+                                           ('L','LF+RFR+FL-F-LFLFL-FRFR+'),
+                                           ('R','-LFLF+RFRFR+F+RF-LFL-FR')],
+                                    angle = 90)
+            fass2.iterate(4)
+            path1=np.array(fass2.segment(initialpt=[0.0,0.0], d=1.0))
+            dim = path1.max() - path1.min()
+            path2 = list()
+            path1min = path1.min()
+            for pt in path1:
+                path2.append(((self.imin.shape[0] * (pt[0]-path1min)) / (dim - 1),
+                              (self.imin.shape[1] * (pt[1]-path1min)) / (dim - 1)))
+            path3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in path2]
+            self.maze_path = path3
+            self.plotMazeImage("figFass2_0.png")
+            self.maze_path = TSPopt.simplify(self.maze_path)
+            for i in range(10):
+                self.resampling()
+            self.plotMazeImage("figFass2_1.png")
+            self.maze_path = TSPopt.simplify(self.maze_path)
+
+            while True:
+                delta, seg1 = TSPopt.threeOptLocal(self.maze_path, 40)
+                self.maze_path = seg1
+                if delta == 0.:
+                    break
+
+            self.plotMazeImage("figFass2_2.png")
+            for i in range(10):
+                self.resampling()
 
         else:
             self.maze_path = [(0., 0.)]
