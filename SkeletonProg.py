@@ -15,7 +15,8 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
     skeleton.segments.renderGrad()
     im = skeleton.segments.grad
     misc.imsave(ofile_name1, im)
-
+    skeleton.segments.scaleBin()
+    skeleton.segments.binWrite(bin_fn)
 
 
 if __name__ == "__main__":
