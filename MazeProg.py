@@ -10,9 +10,9 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
     im = misc.imread(ifile_name, flatten=True)
     m = Maze.Maze(im,levels=5)
     #m.optimize_loop2(500,10,1.025,10)
-    m.optimize_loop2(100,5,2,10)
+    m.optimize_loop2(150,1,2,10)
     m.Fb = 0.0
-    m.optimize_loop2(20,5,2,10)
+    m.optimize_loop2(20,1000,2,10)
 
     m.mazeSegmentOptimize()
     m.maze_to_segments()

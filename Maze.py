@@ -98,7 +98,7 @@ class Maze:
             # f = self.Ff * (((pim1*self.delta(i-1) + pip1*self.delta(i+1))/(self.delta(i-1)+self.delta(i+1))) - pi)
             fare.append(f)
         fare.append(null)  # final element
-        assert len(fare) == len(self.maze_path)
+        #assert len(fare) == len(self.maze_path)
         return np.array(fare)
 
     @staticmethod
@@ -265,7 +265,7 @@ class Maze:
                         break
 
             if loop_count % img_dump == 0:
-                self.plotMazeImage("fig" + str(loop_count) + ".png")
+                self.plotMazeImage("img/fig" + str(loop_count).zfill(5) + ".png")
                 elapsed = timeit.default_timer() - start_time
                 start_time = timeit.default_timer()
                 print(str(loop_count) + " " + str(len(self.maze_path)) + " " + str(elapsed))
@@ -319,15 +319,19 @@ class Maze:
                 print("Equil Fail")
                 return False
 
-    def plotMazeImage(self, name, points=False):
+    def plotMazeImage(self, name, points=False,superimpose=False):
         plt_x = [a[0] for a in self.maze_path]
         plt_y = [a[1] for a in self.maze_path]
-        plt.imshow(np.transpose(self.imin), cmap=cm.gray)
+        if superimpose:
+            plt.imshow(np.transpose(self.imin), cmap=cm.gray)
+
         if points:
             plt.plot(plt_x, plt_y, '.-')
         else:
-            plt.plot(plt_x, plt_y, '-')
-        plt.savefig(name)
+            plt.plot(plt_x, plt_y, '-', linewidth=0.3)
+
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.savefig(name,dpi=600)
         plt.clf()
 
     def maze_to_segments(self):
@@ -451,7 +455,7 @@ class Maze:
                                            ('L','LF+RFR+FL-F-LFLFL-FRFR+'),
                                            ('R','-LFLF+RFRFR+F+RF-LFL-FR')],
                                     angle = 90)
-            fass2.iterate(4)
+            fass2.iterate(5)
             path1=np.array(fass2.segment(initialpt=[0.0,0.0], d=1.0))
             dim = path1.max() - path1.min()
             path2 = list()
