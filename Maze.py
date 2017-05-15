@@ -4,6 +4,7 @@ import statistics
 import sys
 import timeit
 from functools import partial
+import multiprocessing
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -264,7 +265,7 @@ class Maze:
                     if delta == 0.:
                         break
 
-            if loop_count % img_dump == 0:
+            if img_dump > 0 and loop_count % img_dump == 0:
                 self.plotMazeImage("img/fig" + str(loop_count).zfill(5) + ".png")
                 elapsed = timeit.default_timer() - start_time
                 start_time = timeit.default_timer()
@@ -365,6 +366,11 @@ class Maze:
         # whiten
         self.imin /= white
         self.imin += 255 - (255 // white)
+
+        # processor count
+        self.PROCESSORS = multiprocessing.cpu_count()
+        if self.PROCESSORS > 1:
+            self.PROCESSORS -= 1
 
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
