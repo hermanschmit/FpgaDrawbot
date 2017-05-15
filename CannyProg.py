@@ -1,22 +1,37 @@
-import Canny
 import sys
+from time import time
+
 from scipy import misc
+
+import Canny
+import Segments
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
-    canny = Canny.Canny(misc.imread(ifile_name, flatten=True))
-    print "Canny Done"
+    im = misc.imread(ifile_name, flatten=True)
+    t1 = time()
+    canny = Canny.Canny(im,sigma=1.0)
+    print("Canny Done:", time() - t1)
     canny.addInitialStartPt()
-    canny.euclidMstPrune(True,40)
+    # canny.euclidMstPrune(True,40)
+    print(len(canny.segments.segmentList))
     canny.euclidMstOrder()
-    print len(canny.segmentList)
+    print(len(canny.segments.segmentList))
     canny.concatSegments()
-    print len(canny.segmentList)
-    canny.segment2grad(interior=True)
-    canny.binWrite(bin_fn)
-    canny.renderGrad()
-    im = canny.grad
+    print(len(canny.segments.segmentList))
+    canny.segments.simplify()
+    canny.segments.segment2grad(interior=True)
+    canny.segments.renderGrad()
+    im = canny.segments.grad
     misc.imsave(ofile_name1, im)
+    canny.segments.svgwrite("test.svg")
+    segNew = Segments.Segments()
+    segNew.svgread("test.svg")
+    segNew.svgwrite("test2.svg")
+
+    #canny.segments.svgread("test.svg")
+    canny.segments.scaleBin()
+    canny.binWrite(bin_fn)
 
 
 if __name__ == "__main__":
@@ -25,4 +40,4 @@ if __name__ == "__main__":
     elif len(sys.argv) == 3:
         main(sys.argv[1], sys.argv[2])
     else:
-        print "Error: unknown usage"
+        print("Error: unknown usage")
