@@ -141,7 +141,7 @@ def threeOptLoop(seg0, maxdelta=10):
     for a in range(len(seg0) - 3):
         for c in range(a + 1, min(a + maxdelta, len(seg0) - 2)):
             for e in range(c + 1, min(c + maxdelta, len(seg0) - 1)):
-                delta, seg0 = threeOpt(seg0, a, c, e) # TODO need to return seg0?
+                delta, seg0 = threeOpt(seg0, a, c, e)
                 totald += delta
     return totald, seg0
 

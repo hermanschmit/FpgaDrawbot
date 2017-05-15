@@ -87,6 +87,27 @@ def attract_repel_segment(s, im, maze_path, kdtree, R0, R1_R0, Fa, chunk=2000):
 
     return fi_l
 
+def attract_repel_global(im, maze_path, R0, R1_R0, Fa):
+    fi_l = []
+    for i in range(0, len(maze_path)):
+
+        fi = np.array([0., 0.])
+        i_pt = maze_path[i]
+        r0, r1 = _R0_val(i_pt, im, R0, R1_R0)
+
+        for j in range(0,len(maze_path)):
+            if j == len(maze_path) - 1:
+                continue
+            if j < i - 2 or j >= i + 2:
+                j_pt = maze_path[j]
+                jp1_pt = maze_path[j + 1]
+                pi2xij, xij = _distABtoP(j_pt, jp1_pt, i_pt)
+                if pi2xij < r1:
+                    fij = _LennardJones2(r0, i_pt, pi2xij, xij, Fa)
+                    fi += fij
+        fi_l.append(fi)
+
+    return fi_l
 
 @jit
 def _repulse(r):
