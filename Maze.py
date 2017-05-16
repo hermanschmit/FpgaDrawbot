@@ -113,7 +113,7 @@ class Maze:
     def R0_val(self, i_pt):
         i_pt0 = max(min(round(i_pt[0]), self.imin.shape[0] - 1), 0)
         i_pt1 = max(min(round(i_pt[1]), self.imin.shape[1] - 1), 0)
-        r0 = self.R0 * self.density(self.imin[i_pt0][i_pt1])
+        r0 = self.R0 * self.density(self.imin[int(i_pt0)][int(i_pt1)])
         return r0, self.R1_R0 * r0
 
     def attract_repel_serial(self):
