@@ -178,7 +178,7 @@ class Segments:
         if dx > dy:
             err = dx / 2.0
             while x != scale * p1_i[0]:
-                self.grad[round(x), round(y)] = -1
+                self.grad[int(round(x)), int(round(y))] = -1
                 err -= dy
                 if err < 0:
                     y += sy
@@ -187,19 +187,19 @@ class Segments:
         else:
             err = dy / 2.0
             while y != scale * p1_i[1]:
-                self.grad[round(x), round(y)] = -1
+                self.grad[int(round(x)), int(round(y))] = -1
                 err -= dx
                 if err < 0:
                     x += sx
                     err += dy
                 y += sy
-        self.grad[round(x), round(y)] = -1
+        self.grad[int(round(x)), int(round(y))] = -1
 
     def segment2grad(self, interior=False, scale=1, maxsegments=2 ** 20):
-        self.grad = numpy.zeros((scale * (self.xmax + 1), scale * (self.ymax + 1)), dtype=numpy.int)
+        self.grad = numpy.zeros((int(round(scale * self.xmax))+1, int(round(scale * self.ymax)+1)), dtype=numpy.int)
         for s in self.segmentList:
             for p in s:
-                self.grad[round(scale * p[0]), round(scale * p[1])] = -1
+                self.grad[int(round(scale * p[0])), int(round(scale * p[1]))] = -1
         s0 = self.segmentList[0]
         segcount = 0
         for s1 in self.segmentList[1:]:

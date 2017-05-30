@@ -42,6 +42,8 @@ class SegmentsInst0Test0(SegmentsInst0):
         self.assertEqual(self.seg.ymax, 1.0)
         self.assertEqual(self.seg.ymin, -0.6)
         self.seg.svgwrite("test.svg")
+        self.seg.segment2grad(scale=2)
+        self.seg.segment2grad(interior=True,scale=1)
 
 class SegmentsInst0Test1(SegmentsInst0):
     def runTest(self):
