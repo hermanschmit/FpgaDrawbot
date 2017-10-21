@@ -167,10 +167,15 @@ class Segments:
         """
         Bresenham's line algorithm
         """
+
+        #TODO fix the bresenham rounding problem
+        # Here I round the input value
         p0_i = (round(p0[0]), round(p0[1]))
         p1_i = (round(p1[0]), round(p1[1]))
         dx = scale * abs(p1_i[0] - p0_i[0])
         dy = scale * abs(p1_i[1] - p0_i[1])
+        # Now I multiply by scale factors, latter I will round(x) and round(y) again
+        # This (I think) pushes the indices outside of the grad constraints.
         x = scale * p0_i[0]
         y = scale * p0_i[1]
         sx = -1 if p0_i[0] > p1_i[0] else 1
@@ -210,6 +215,7 @@ class Segments:
 
 
     def segment2grad(self, interior=False, scale=1, maxsegments=2 ** 20):
+        # adding 2 to xmax/ymax because of rounding problems in bresenham above. If it is fixed, go back down to +1
         self.grad = numpy.zeros((int(round(scale * self.xmax))+2, int(round(scale * self.ymax)+2)), dtype=numpy.int)
         for s in self.segmentList:
             for p in s:
