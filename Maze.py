@@ -462,6 +462,7 @@ class Maze:
                                            ('R','-LFLF+RFRFR+F+RF-LFL-FR')],
                                     angle = 90)
             fass2.iterate(5)
+            #fass2.iterate(4)
             path1=np.array(fass2.segment(initialpt=[0.0,0.0], d=1.0))
             dim = path1.max() - path1.min()
             path2 = list()
@@ -488,11 +489,51 @@ class Maze:
             for i in range(10):
                 self.resampling()
 
-        else:
+        elif init_shape == 4:
+            # simple diagonal
             self.maze_path = [(0., 0.)]
             segListEnd = tuple([x - 1 for x in self.imin.shape])
             self.maze_path.append(segListEnd)
             self.maze_path = np.array(self.maze_path)
+        elif init_shape == 5:
+            # Built to cover the perimeter of X
+            x_path = [[0.50, 0.50],
+                      [0.50, 0.505],
+                      [0.505, 0.51],
+                      [0.506, 0.52],
+                      [0.508, 0.54],
+                      [0.51, 0.55],
+                      [0.54, 0.60],
+                      [0.60, 0.70],
+                      [0.98, 0.98],
+                      [0.985,0.72],
+                      [0.98, 0.65],
+                      [0.80, 0.50],
+                      [0.98, 0.33],
+                      [0.98, 0.02],
+                      [0.72, 0.02],
+                      [0.65, 0.02],
+                      [0.50, 0.20],
+                      [0.35, 0.02],
+                      [0.14, 0.015],
+                      [0.02, 0.02],
+                      [0.02, 0.33],
+                      [0.20, 0.50],
+                      [0.02, 0.67],
+                      [0.02, 0.98],
+                      [0.33, 0.98],
+                      [0.50, 0.70]]
+            corner = (self.imin.shape[0]-1,self.imin.shape[1]-1)
+            path3 = [[corner[0] * pt[0], corner[1] * pt[1]] for pt in x_path]
+            self.maze_path = path3
+            self.maze_path = np.array(self.maze_path)
+            for i in range(10):
+                self.resampling()
+            self.plotMazeImage("figPerim.png",superimpose=True)
+
+
+
+
         self.seg = Segments.Segments()
 
         factor = 0.5

@@ -257,9 +257,9 @@ class Segments:
             for p1 in s0:
                 t = (float(p1[1]),float(p1[0]))
                 l.append(t)
-        path = svgwrite.path.Path("M %d,%d" % l[0], fill='none', stroke='black', stroke_width=0.5)
+        path = svgwrite.path.Path("M %f,%f" % l[0], fill='none', stroke='black', stroke_width=0.5)
         for x in l[1:]:
-            path.push(" %d,%d" % x)
+            path.push(" %f,%f" % x)
         # dwg.add(dwg.polyline(l,stroke='black', fill='none', stroke-width=0.5))
         dwg.add(path)
         dwg.save()
