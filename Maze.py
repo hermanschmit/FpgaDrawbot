@@ -10,7 +10,8 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from numba import jit
-from scipy import spatial, stats
+from scipy import spatial, stats, ndimage
+from skimage.morphology import skeletonize
 
 import AttractRepel
 import Hilbert
@@ -379,9 +380,19 @@ class Maze:
         levels = max(2, levels)
 
         nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
+        print(nq)
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
         plt.imshow(self.imin, cmap=cm.gray)
         plt.savefig("figStartOrig.png")
+        plt.clf()
+        b = np.array([[0.],[255.]])
+        q = np.array([[1.],[0.]])
+        blacks = Quantization.quantMatrix(self.imin,q,b)
+        eroded = ndimage.binary_erosion(blacks,iterations=2)
+        skeleton = skeletonize(blacks)
+
+        plt.imshow(skeleton, cmap=cm.gray)
+        plt.savefig("figSkeleton.png")
         plt.clf()
 
         # self.R0_B = self.density(nq[-1][0])
