@@ -18,6 +18,7 @@ import Hilbert
 import Quantization
 import Segments
 import TSPopt
+import Skeleton
 
 
 @jit
@@ -346,7 +347,7 @@ class Maze:
             if delta == 0:
                 break
 
-    def __init__(self, image_matrix, white=1, levels=4, init_shape=3):
+    def __init__(self, image_matrix, white=1, levels=4, init_shape=6):
         """
         :param image_matrix:
         """
@@ -375,24 +376,16 @@ class Maze:
 
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
+        print("Centroids: ")
         print(self.centroids)
         levels = min(levels, len(self.centroids))
         levels = max(2, levels)
-
-        nq = np.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
+        maxQuant = 220  # This can be as much as 256, lower allows white to still get lined
+        nq = np.array([[x * maxQuant / (levels - 1)] for x in range(0, levels)])
         print(nq)
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
         plt.imshow(self.imin, cmap=cm.gray)
         plt.savefig("figStartOrig.png")
-        plt.clf()
-        b = np.array([[0.],[255.]])
-        q = np.array([[1.],[0.]])
-        blacks = Quantization.quantMatrix(self.imin,q,b)
-        eroded = ndimage.binary_erosion(blacks,iterations=2)
-        skeleton = skeletonize(blacks)
-
-        plt.imshow(skeleton, cmap=cm.gray)
-        plt.savefig("figSkeleton.png")
         plt.clf()
 
         # self.R0_B = self.density(nq[-1][0])
@@ -541,8 +534,34 @@ class Maze:
             for i in range(10):
                 self.resampling()
             self.plotMazeImage("figPerim.png",superimpose=True)
+        elif init_shape == 6: # use skeleton to cover most of dark image (>128)
+            b = np.array([[0.], [128.]])
+            q = np.array([[0.], [1.]])
+            blacks = Quantization.quantMatrix(self.imin, q, b)
+            skeleton = Skeleton.Skeleton(blacks)
 
+            plt.imshow(skeleton.imin, cmap=cm.gray)
+            plt.savefig("figSkeleton.png")
+            plt.clf()
+            skeleton.segments.addInitialStartPt()
+            skeleton.euclidMstOrder()
+            skeleton.segments.concatSegments()
 
+            oneD = skeleton.segments.segmentList.flatten()
+            self.maze_path = np.reshape(oneD, (-1, 2))
+            brownian = self.brownian()
+            self.maze_path = np.add(self.maze_path, brownian)
+            self.maze_path = TSPopt.simplify(self.maze_path)
+
+            size = 60
+            while True:
+                print("SkeletonTSP "+str(size))
+                delta, seg1 = TSPopt.threeOptLocal(self.maze_path, size)
+                self.maze_path = seg1
+                if delta == 0.:
+                    break
+                size = max(5,size-5)
+            self.plotMazeImage("figMazeSkeleton.png",superimpose=True)
 
 
         self.seg = Segments.Segments()

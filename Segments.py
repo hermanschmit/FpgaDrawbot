@@ -61,7 +61,7 @@ class Segments:
         self.numpts = 0
 
     def addInitialStartPt(self):
-        self.segmentList.insert(0, [[(self.xmax + self.xmin) // 2, (self.ymax + self.ymax) // 2]])
+        self.segmentList.insert(0, [[(self.xmax + self.xmin) // 2, (self.ymax + self.ymin) // 2]])
 
     def append(self, segment):
         self.segmentList.append(segment)
