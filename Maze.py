@@ -55,6 +55,13 @@ class Maze:
     CHUNK = 4000
     PROCESSORS = 4
 
+    INIT_MOORE = 1
+    INIT_FASS = 3
+    INIT_DIAG = 4
+    INIT_SKEL = 5
+
+
+
     '''
     Notes
     I'm going to first debug this with the intent of balancing the forces, without regard to the
@@ -347,7 +354,7 @@ class Maze:
             if delta == 0:
                 break
 
-    def __init__(self, image_matrix, white=1, levels=4, init_shape=6):
+    def __init__(self, image_matrix, white=1, levels=4, init_shape=INIT_SKEL, maxQuant = 220):
         """
         :param image_matrix:
         """
@@ -380,7 +387,6 @@ class Maze:
         print(self.centroids)
         levels = min(levels, len(self.centroids))
         levels = max(2, levels)
-        maxQuant = 220  # This can be as much as 256, lower allows white to still get lined
         nq = np.array([[x * maxQuant / (levels - 1)] for x in range(0, levels)])
         print(nq)
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
@@ -391,7 +397,7 @@ class Maze:
         # self.R0_B = self.density(nq[-1][0])
 
         # Initial segment
-        if init_shape == 1:
+        if init_shape == self.INIT_MOORE:
 
             moore = []
             m = []
@@ -402,6 +408,8 @@ class Maze:
                 moore.append(((self.imin.shape[0] * x) / (n - 1),
                               (self.imin.shape[1] * y) / (n - 1)))
             '''
+            Ordinarily, the moore curve starts in the middle of one
+            edge.
             Rotate the moore graph to start in the middle
             '''
 
@@ -419,11 +427,9 @@ class Maze:
             moore3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in moore2]
             self.maze_path = np.array(moore3)
 
-            self.plotMazeImage("figStart0.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
             for i in range(10):
                 self.resampling()
-            self.plotMazeImage("figStart1.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
 
             while True:
@@ -432,7 +438,6 @@ class Maze:
                 if delta == 0.:
                     break
 
-            self.plotMazeImage("figStart2.png")
             for i in range(10):
                 self.resampling()
             '''
@@ -442,21 +447,13 @@ class Maze:
 
             brownian = self.brownian()
             self.maze_path = np.add(self.maze_path, brownian)
-            self.plotMazeImage("figStart3.png")
+            self.plotMazeImage("figStartMoore.png",superimpose=True)
 
-        elif init_shape == 2:
-            import LSystem
-
-            gosper = LSystem.LSystem(axiom='B',
-                                     rules=[('A', 'A-B--B+A++AA+B-'),
-                                            ('B', '+A-BB--B-A++A+B')],
-                                     angle=60.0)
-
-            gosper.iterate(5)
-            self.maze_path = np.array(gosper.segment(initialpt=[200.0, 600.0], d=4.0))
-            self.plotMazeImage("figStartGosper0.png")
-
-        elif init_shape == 3:
+        elif init_shape == self.INIT_FASS:
+            """ FASS is for Filling, self-Avoiding, Simple, and self-Similar.
+                This is one instance of a FASS system. This one starts in the
+                center, which is why it is advantageous for us.
+            """
             import LSystem
 
             fass2 = LSystem.LSystem(axiom="FX",
@@ -466,7 +463,6 @@ class Maze:
                                            ('R','-LFLF+RFRFR+F+RF-LFL-FR')],
                                     angle = 90)
             fass2.iterate(5)
-            #fass2.iterate(4)
             path1=np.array(fass2.segment(initialpt=[0.0,0.0], d=1.0))
             dim = path1.max() - path1.min()
             path2 = list()
@@ -476,11 +472,10 @@ class Maze:
                               (self.imin.shape[1] * (pt[1]-path1min)) / (dim - 1)))
             path3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in path2]
             self.maze_path = path3
-            self.plotMazeImage("figFass2_0.png")
+            self.plotMazeImage("figStartFass0.png",superimpose=True)
             self.maze_path = TSPopt.simplify(self.maze_path)
-            for i in range(10):
+            for _ in range(10):
                 self.resampling()
-            self.plotMazeImage("figFass2_1.png")
             self.maze_path = TSPopt.simplify(self.maze_path)
 
             while True:
@@ -489,60 +484,27 @@ class Maze:
                 if delta == 0.:
                     break
 
-            self.plotMazeImage("figFass2_2.png")
             for i in range(10):
                 self.resampling()
 
-        elif init_shape == 4:
+            self.plotMazeImage("figStartFass.png",superimpose=True)
+
+        elif init_shape == self.INIT_DIAG:
             # simple diagonal
-            self.maze_path = [(0., 0.)]
             segListEnd = tuple([x - 1 for x in self.imin.shape])
+            self.maze_path = list()
+            for i in range(20):
+                self.maze_path.append((int(i*segListEnd[0]/20),
+                                       int(i*segListEnd[1]/20)))
             self.maze_path.append(segListEnd)
             self.maze_path = np.array(self.maze_path)
-        elif init_shape == 5:
-            # Built to cover the perimeter of X
-            x_path = [[0.50, 0.50],
-                      [0.50, 0.505],
-                      [0.505, 0.51],
-                      [0.506, 0.52],
-                      [0.508, 0.54],
-                      [0.51, 0.55],
-                      [0.54, 0.60],
-                      [0.60, 0.70],
-                      [0.98, 0.98],
-                      [0.985,0.72],
-                      [0.98, 0.65],
-                      [0.80, 0.50],
-                      [0.98, 0.33],
-                      [0.98, 0.02],
-                      [0.72, 0.02],
-                      [0.65, 0.02],
-                      [0.50, 0.20],
-                      [0.35, 0.02],
-                      [0.14, 0.015],
-                      [0.02, 0.02],
-                      [0.02, 0.33],
-                      [0.20, 0.50],
-                      [0.02, 0.67],
-                      [0.02, 0.98],
-                      [0.33, 0.98],
-                      [0.50, 0.70]]
-            corner = (self.imin.shape[0]-1,self.imin.shape[1]-1)
-            path3 = [[corner[0] * pt[0], corner[1] * pt[1]] for pt in x_path]
-            self.maze_path = path3
-            self.maze_path = np.array(self.maze_path)
-            for i in range(10):
-                self.resampling()
-            self.plotMazeImage("figPerim.png",superimpose=True)
-        elif init_shape == 6: # use skeleton to cover most of dark image (>128)
+
+        elif init_shape == self.INIT_SKEL: # use skeleton to cover most of dark image (>128)
             b = np.array([[0.], [128.]])
             q = np.array([[0.], [1.]])
             blacks = Quantization.quantMatrix(self.imin, q, b)
             skeleton = Skeleton.Skeleton(blacks)
 
-            plt.imshow(skeleton.imin, cmap=cm.gray)
-            plt.savefig("figSkeleton.png")
-            plt.clf()
             skeleton.segments.addInitialStartPt()
             skeleton.euclidMstOrder()
             skeleton.segments.concatSegments()
@@ -555,13 +517,12 @@ class Maze:
 
             size = 60
             while True:
-                print("SkeletonTSP "+str(size))
                 delta, seg1 = TSPopt.threeOptLocal(self.maze_path, size)
                 self.maze_path = seg1
                 if delta == 0.:
                     break
                 size = max(5,size-5)
-            self.plotMazeImage("figMazeSkeleton.png",superimpose=True)
+            self.plotMazeImage("figStartSkeleton.png",superimpose=True)
 
 
         self.seg = Segments.Segments()

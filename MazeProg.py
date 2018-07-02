@@ -1,14 +1,16 @@
 __author__ = 'herman'
 import sys
-
+import argparse
 from scipy import misc
 
 import Maze
 
 
-def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
+def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
+         quant_levels=5,
+         init_shape=Maze.Maze.INIT_DIAG):
     im = misc.imread(ifile_name, flatten=True)
-    m = Maze.Maze(im,levels=5)
+    m = Maze.Maze(im,levels=quant_levels,init_shape=init_shape)
     m.optimize_loop2(1000,1,2,10)
     m.Fb = 0.0
     m.optimize_loop2(20,-1,2,10)
@@ -26,11 +28,34 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5:
-        main(sys.argv[1], sys.argv[2], sys.argv[3],sys.argv[4])
-    elif len(sys.argv) == 4:
-        main(sys.argv[1], sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 3:
-        main(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(description = 'Maze Program')
+    parser.add_argument('--quant_levels', action='store', dest='quant_levels', type=int, default=5)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--moore',action='store_true')
+    group.add_argument('--skeleton',action='store_true')
+    group.add_argument('--fass',action='store_true')
+    group.add_argument('--diag',action='store_true')
+    parser.add_argument('input_image_fn', action="store", help='Input Image')
+    parser.add_argument('output_image_fn',action="store", help='Output Image')
+    parser.add_argument('output_bin_fn',action='store',help='Output Bin File')
+    parser.add_argument('output_svg_fn',action='store', nargs='?', default=None, help='SVG File')
+    args = parser.parse_args()
+
+    if args.moore:
+        shape = Maze.Maze.INIT_MOORE
+    elif args.skeleton:
+        shape = Maze.Maze.INIT_SKEL
+    elif args.fass:
+        shape = Maze.Maze.INIT_FASS
+    elif args.diag:
+        shape = Maze.Maze.INIT_DIAG
     else:
-        print("Error: unknown usage")
+        shape = Maze.Maze.INIT_SKEL
+
+
+    main(args.input_image_fn,
+         args.output_image_fn,
+         args.output_bin_fn,
+         args.output_svg_fn,
+         args.quant_levels,
+         init_shape=shape)
