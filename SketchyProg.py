@@ -1,8 +1,7 @@
 __author__ = 'herman'
 from scipy.misc import *
-
 import Sketchy
-
+import sys
 
 def main(ifile_name, ofile_name1, ofile_name2, bin_fn="bfile.bin", levels=4, scale=True, transform=True):
     sketch = Sketchy.Sketchy(imread(ifile_name, flatten=True), levels, scale, transform)

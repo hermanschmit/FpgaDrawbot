@@ -100,6 +100,16 @@ class Segments:
         f.write(" };\n")
         f.close()
 
+    def openScadArrayWrite(self, fname):
+        f = open(fname, 'w')
+        f.write("lineData = [\n")
+        for s in self.segmentList:
+            for p in s:
+                # x, y = self.pixelscale(p)
+                f.write("       [" + repr(p[1]) + ", " + repr(p[0]) + "],\n")
+        f.write(" ];\n")
+        f.close()
+
     def binList(self):
         l = [float('NaN')] * (2 * self.numpts + 20)
         i = 0
@@ -247,7 +257,7 @@ class Segments:
         self.grad[:, :] = 255
         self.grad[x, y] = 0
 
-    def svgwrite(self, fn):
+    def svgwrite(self, fn, broken=False):
         dwg = svgwrite.Drawing(fn, profile='tiny')
         i = (float(self.ymin),float(self.xmin))
         s = (float(self.ymax-self.ymin),float(self.xmax-self.xmin))
@@ -257,11 +267,20 @@ class Segments:
             for p1 in s0:
                 t = (float(p1[1]),float(p1[0]))
                 l.append(t)
-        path = svgwrite.path.Path("M %f,%f" % l[0], fill='none', stroke='black', stroke_width=0.5)
-        for x in l[1:]:
-            path.push(" %f,%f" % x)
-        # dwg.add(dwg.polyline(l,stroke='black', fill='none', stroke-width=0.5))
-        dwg.add(path)
+        if broken:
+            # break up lines for easier diff (maybe)
+            path = svgwrite.path.Path("M %f,%f" % l[0], fill='none', stroke='black', stroke_width=0.5)
+            for x in l[1:-2]:
+                path.push(" %f,%f" % x)
+                dwg.add(path)
+                path = svgwrite.path.Path("M %f,%f" % x, fill='none', stroke='black', stroke_width=0.5)
+            path.push(" %f,%f" % l[-1])
+            dwg.add(path)
+        else:
+            path = svgwrite.path.Path("M %f,%f" % l[0], fill='none', stroke='black', stroke_width=0.5)
+            for x in l[1:]:
+                path.push(" %f,%f\n" % x)
+            dwg.add(path)
         dwg.save()
 
     def svgread(self, fn):

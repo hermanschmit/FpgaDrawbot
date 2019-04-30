@@ -44,6 +44,7 @@ class SegmentsInst0Test0(SegmentsInst0):
         self.seg.svgwrite("test_inst0.svg")
         self.seg.segment2grad(scale=2)
         self.seg.segment2grad(interior=True,scale=1)
+        self.seg.openScadArrayWrite("test_inst0.scad")
 
 class SegmentsInst0Test1(SegmentsInst0):
     def runTest(self):

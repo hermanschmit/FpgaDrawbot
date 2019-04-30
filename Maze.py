@@ -267,12 +267,16 @@ class Maze:
                 break
 
             if loop_count % tsp == 0:
+                self.maze_to_segments()
+                self.segments.svgwrite("svg/TSP_" + str(loop_count) + "a.svg")
                 while True:
                     delta, seg1 = TSPopt.threeOptLocal(self.maze_path, 30)
                     self.maze_path = seg1
                     print("TSP: " + str(delta) + " loop: " + str(loop_count))
                     if delta == 0.:
                         break
+                self.maze_to_segments()
+                self.segments.svgwrite("svg/TSP_" + str(loop_count) + "b.svg")
 
             if img_dump > 0 and loop_count % img_dump == 0:
                 self.plotMazeImage("img/fig" + str(loop_count).zfill(5) + ".png")
