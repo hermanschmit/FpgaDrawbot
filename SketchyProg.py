@@ -1,22 +1,19 @@
 __author__ = 'herman'
-from scipy.misc import *
 import Sketchy
 import sys
+import imageio
 
 def main(ifile_name, ofile_name1, ofile_name2, bin_fn="bfile.bin", levels=4, scale=True, transform=True):
-    sketch = Sketchy.Sketchy(imread(ifile_name, flatten=True), levels, scale, transform)
+    sketch = Sketchy.Sketchy(imageio.imread(ifile_name,as_gray=True), levels, scale, transform)
 
     for x in range(1000):
         sketch.draw_line()
         print(x)
 
-
-    #    om = sketch.quant_mat
-    #    imsave(ofile_name1, om)
-    imsave(ofile_name1, sketch.quant_idx)
+    imageio.imsave(ofile_name1, sketch.quant_idx)
     if transform:
         sketch.untransform()
-    imsave(ofile_name2, sketch.drawn_mat * 20)
+    imageio.imsave(ofile_name2, sketch.drawn_mat * 20)
     sketch.binWrite(bin_fn)
 
     print(sketch.quant_idx)

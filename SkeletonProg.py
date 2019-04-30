@@ -1,11 +1,11 @@
 import sys
 
-from scipy import misc
+import imageio
 
 import Skeleton
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
-    im = misc.imread(ifile_name, flatten=True)
+    im = imageio.imread(ifile_name,as_gray=True)
     skeleton = Skeleton.Skeleton(im)
     skeleton.segments.addInitialStartPt()
     skeleton.euclidMstOrder()
@@ -14,7 +14,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
     skeleton.segments.segment2grad(interior=True)
     skeleton.segments.renderGrad()
     im = skeleton.segments.grad
-    misc.imsave(ofile_name1, im)
+    imageio.imwrite(ofile_name1, im)
     skeleton.segments.scaleBin()
     skeleton.segments.binWrite(bin_fn)
 

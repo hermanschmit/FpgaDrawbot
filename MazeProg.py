@@ -1,5 +1,4 @@
 __author__ = 'herman'
-import sys
 import argparse
 import imageio
 
@@ -9,7 +8,6 @@ import Maze
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
          quant_levels=5,
          init_shape=Maze.Maze.INIT_DIAG):
-    # im = misc.imread(ifile_name, flatten=True)
     im = imageio.imread(ifile_name,as_gray=True)
     m = Maze.Maze(im,levels=quant_levels,init_shape=init_shape)
     m.optimize_loop2(1000,1,2,10)
@@ -21,7 +19,6 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
     m.segments.segment2grad(interior=True, scale=2)
     m.segments.renderGrad()
     im = m.segments.grad
-    #misc.imsave(ofile_name1, im)
     imageio.imwrite(ofile_name1, im)
     if svg_file!=None:
         m.segments.svgwrite(svg_file)
