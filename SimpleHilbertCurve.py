@@ -306,8 +306,8 @@ def generateVectors(level, moore):
     Useful for explaining HCs.
     """
     n = (1 << level)
-    x = numpy.zeros(n ** 2, dtype=numpy.int16)
-    y = numpy.zeros(n ** 2, dtype=numpy.int16)
+    x = numpy.zeros(n ** 2, dtype=int16)
+    y = numpy.zeros(n ** 2, dtype=int16)
     for i in range(0, n ** 2):
         x[i], y[i] = d2xy(n, i, moore)
         d = xy2d(n, x[i], y[i], moore)

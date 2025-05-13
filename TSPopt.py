@@ -78,7 +78,7 @@ def distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt):
 
     return abcdef, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf
 
-@jit
+# TODO @jit
 def threeOpt(seg0, a, c, e, twoOpt=False):
     a_pt = seg0[a]
     b_pt = seg0[a + 1]

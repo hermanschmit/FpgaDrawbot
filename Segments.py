@@ -48,8 +48,6 @@ def _simplifysegment(s):
     return numpy.array(new_s)
 
 
-
-
 class Segments:
     def __init__(self, max_depth=2 ** 20):
         self.segmentList = []
@@ -84,6 +82,32 @@ class Segments:
             raise ValueError
         self.numpts = numpts
         self.segmentList = numpy.array(segmentSimp)
+
+    def chaikin_smoothing(self, iterations, limit=0.0):
+        self.concatSegments()
+        assert(len(self.segmentList) == 1)
+        pointList = self.segmentList[0]
+        print("PointCount (pre-smoothing):", len(pointList))
+        if len(pointList) <= 2:
+            return
+        for _ in range(iterations):
+            new_points = []
+            for i in range(len(pointList) - 1):
+                p1 = pointList[i]
+                p2 = pointList[i+1]
+                if _hyp(p1[0],p1[1],p2[0],p2[1]) < limit:
+                    new_points.append(p1)
+                else:
+                    q = (0.75 * p1[0] + 0.25 * p2[0], 0.75 * p1[1] + 0.25 * p2[1])
+                    r = (0.25 * p1[0] + 0.75 * p2[0], 0.25 * p1[1] + 0.75 * p2[1])
+                    new_points.append(q)
+                    new_points.append(r)
+            pointList = new_points
+        print("PointCount (post-smoothing): ", len(pointList))
+        sL = []
+        sL.append(pointList)
+        self.segmentList = numpy.array(sL)
+        return
 
     def cArrayWrite(self, fname):
         f = open(fname, 'w')
@@ -226,7 +250,8 @@ class Segments:
 
     def segment2grad(self, interior=False, scale=1, maxsegments=2 ** 20):
         # adding 2 to xmax/ymax because of rounding problems in bresenham above. If it is fixed, go back down to +1
-        self.grad = numpy.zeros((int(round(scale * self.xmax))+2, int(round(scale * self.ymax)+2)), dtype=numpy.int)
+        self.grad = numpy.zeros((int(round(scale * self.xmax))+2,
+                                 int(round(scale * self.ymax)+2)), dtype=int)
         for s in self.segmentList:
             for p in s:
                 self.grad[int(round(scale * p[0])), int(round(scale * p[1]))] = -1

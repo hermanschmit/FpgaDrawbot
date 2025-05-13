@@ -10,6 +10,9 @@ This is the python code associated with image processing for the Altera FPGA Dra
 ### How do I get set up? ###
 
 * Requires scipy and numpy
+* svgwrite
+* numba
+* scikit-image
 
 ### Who do I talk to? ###
 

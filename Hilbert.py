@@ -292,7 +292,7 @@ class Hilbert:
 
         # stipple
         self.stipple()
-        self.grad = zeros(shape(self.imin), dtype=numpy.int)
+        self.grad = zeros(shape(self.imin), dtype=int)
         misc.imsave("test2.png", self.stipple_im)
 
         seg = self.hilbertSequence()
