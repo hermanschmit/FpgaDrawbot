@@ -78,7 +78,6 @@ def distanceCombinations(a_pt, b_pt, c_pt, d_pt, e_pt, f_pt):
 
     return abcdef, abcedf, acbdef, acbedf, adebcf, adecbf, aedbcf
 
-# TODO @jit
 def threeOpt(seg0, a, c, e, twoOpt=False):
     a_pt = seg0[a]
     b_pt = seg0[a + 1]
@@ -135,7 +134,6 @@ def threeOpt(seg0, a, c, e, twoOpt=False):
     else:
         return 0, seg0
 
-@jit
 def threeOptLoop(seg0, maxdelta=10):
     totald = 0
     for a in range(len(seg0) - 3):
@@ -145,7 +143,6 @@ def threeOptLoop(seg0, maxdelta=10):
                 totald += delta
     return totald, seg0
 
-#@jit
 def threeOptLocal(seg0, nn=5, twoOpt=False):
     totald = 0
     kdtree = spatial.cKDTree(seg0)

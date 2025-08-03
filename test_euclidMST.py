@@ -44,7 +44,7 @@ class TestEuclidMST_dfo(EuclidMST_instY):
 
 class EuclidMST_instW(TestCase):
     def setUp(self):
-        segList = np.array([[[1, 3]], [[3, 3], [4, 3]], [[2, 0], [2, 2]]])
+        segList = [[[1, 3]], [[3, 3], [4, 3]], [[2, 0], [2, 2]]]
         self.euclidmst = EuclidMST(segList)
 
 
@@ -78,7 +78,7 @@ class TestEuclidMST_pts(EuclidMST_instV):
 
 class EuclidMST_instU(TestCase):
     def setUp(self):
-        segList = np.array([[[3, 3], [4, 3]], [[2, 0], [2, 2]], [[1, 3]]])
+        segList = [[[3, 3], [4, 3]], [[2, 0], [2, 2]], [[1, 3]]]
         self.euclidmst = EuclidMST(segList)
 
 
