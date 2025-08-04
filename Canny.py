@@ -11,6 +11,7 @@ import numpy
 import scipy.ndimage as ndi
 from scipy import *
 from scipy.ndimage import gaussian_filter
+import math
 
 import EuclidMST
 import Segments
@@ -223,7 +224,7 @@ class Canny:
         for x in range(window):
             for y in range(window):
                 r = math.hypot((x - c0), (y - c0))
-                val = (1.0 / 2 * pi * sigma * sigma) * exp(-(r * r) / (2 * sigma * sigma))
+                val = (1.0 / 2 * numpy.pi * sigma * sigma) * math.exp(-(r * r) / (2 * sigma * sigma))
                 kernel[x, y] = val
         return kernel / kernel.sum()
 

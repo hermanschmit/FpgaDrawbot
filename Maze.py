@@ -508,7 +508,7 @@ class Maze:
             skeleton.euclidMstOrder()
             skeleton.segments.concatSegments()
 
-            oneD = skeleton.segments.segmentList.flatten()
+            oneD = [item for sublist in skeleton.segments.segmentList for item in sublist]
             self.maze_path = np.reshape(oneD, (-1, 2))
             brownian = self.brownian()
             self.maze_path = np.add(self.maze_path, brownian)
