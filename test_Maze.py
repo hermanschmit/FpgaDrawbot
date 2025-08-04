@@ -52,7 +52,7 @@ class Maze_seg1(TestCase):
                    [109., 0.], # should be zero because r0 -> 9.0
                    [199., 0.]
                    ]
-        self.MazeInst.maze_path = np.array(segList)
+        self.MazeInst.maze_path = segList
 
 class Maze1(Maze_seg1):
     def runTest(self):

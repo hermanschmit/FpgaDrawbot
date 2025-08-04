@@ -81,7 +81,7 @@ class Segments:
             print(("Number of points exceeds limit: " + repr(numpts)))
             raise ValueError
         self.numpts = numpts
-        self.segmentList = numpy.array(segmentSimp)
+        self.segmentList = segmentSimp
 
     def chaikin_smoothing(self, iterations, limit=0.0):
         self.concatSegments()
@@ -106,7 +106,7 @@ class Segments:
         print("PointCount (post-smoothing): ", len(pointList))
         sL = []
         sL.append(pointList)
-        self.segmentList = numpy.array(sL)
+        self.segmentList = sL
         return
 
     def cArrayWrite(self, fname):
@@ -158,7 +158,7 @@ class Segments:
             s_prev = numpy.append(s_prev, s_new, axis=0)
         self.numpts = len(s_prev)
         sL.append(s_prev)
-        self.segmentList = numpy.array(sL)
+        self.segmentList = sL
 
     def flipY(self):
         for i, seg in enumerate(self.segmentList):
@@ -173,7 +173,7 @@ class Segments:
         for i, seg in enumerate(self.segmentList):
             l = [[ratio * p[0], ratio * p[1]] for p in seg]
             sL.append(l)
-        self.segmentList = numpy.array(sL)
+        self.segmentList = sL
         self.xmax *= ratio
         self.ymax *= ratio
         self.xmin *= ratio
@@ -185,7 +185,7 @@ class Segments:
         for i, seg in enumerate(self.segmentList):
             l = [[dx + float(p[0]), dy + float(p[1])] for p in seg]
             sL.append(l)
-        self.segmentList = numpy.array(sL)
+        self.segmentList = sL
         self.xmax += dx
         self.ymax += dy
         self.xmin += dx

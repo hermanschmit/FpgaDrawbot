@@ -115,21 +115,21 @@ class Canny:
 
         # grad = numpy.hypot(gradx, grady)
         theta = numpy.arctan2(grady, gradx)
-        theta = 180 + (180 / pi) * theta
+        theta = 180 + (180 / numpy.pi) * theta
         # Only significant magnitudes are considered. All others are removed
-        x, y = where(grad < 10)
+        x, y = numpy.where(grad < 10)
         theta[x, y] = 0
         grad[x, y] = 0
 
         # The angles are quantized. This is the first step in non-maximum
         # supression. Since, any pixel will have only 4 approach directions.
-        x0, y0 = where(((theta < 22.5) + (theta >= 157.5) * (theta < 202.5)
+        x0, y0 = numpy.where(((theta < 22.5) + (theta >= 157.5) * (theta < 202.5)
                         + (theta >= 337.5)) == True)
-        x45, y45 = where(((theta >= 22.5) * (theta < 67.5)
+        x45, y45 = numpy.where(((theta >= 22.5) * (theta < 67.5)
                           + (theta >= 202.5) * (theta < 247.5)) == True)
-        x90, y90 = where(((theta >= 67.5) * (theta < 112.5)
+        x90, y90 = numpy.where(((theta >= 67.5) * (theta < 112.5)
                           + (theta >= 247.5) * (theta < 292.5)) == True)
-        x135, y135 = where(((theta >= 112.5) * (theta < 157.5)
+        x135, y135 = numpy.where(((theta >= 112.5) * (theta < 157.5)
                             + (theta >= 292.5) * (theta < 337.5)) == True)
 
         # self.theta = theta
@@ -207,7 +207,7 @@ class Canny:
         """
         order = pow(len(rawfilter), 0.5)
         order = int(order)
-        filt_array = array(rawfilter)
+        filt_array = numpy.array(rawfilter)
         outfilter = filt_array.reshape((order, order))
         return outfilter
 
@@ -217,7 +217,7 @@ class Canny:
             This method is used to create a gaussian kernel to be used
             for the blurring purpose. inputs are sigma and the window size
         """
-        kernel = zeros((window, window))
+        kernel = numpy.zeros((window, window))
         c0 = window // 2
 
         for x in range(window):
@@ -250,7 +250,7 @@ class Canny:
     def initPt(self, limit=200000):
         done = False
         while not done:
-            X, Y = where(self.grad > self.thresHigh)
+            X, Y = numpy.where(self.grad > self.thresHigh)
             if len(X) > limit:
                 self.thresHigh *= 1.25
                 self.thresLow *= 1.25
@@ -275,7 +275,7 @@ class Canny:
         """
             This method is used to find the starting point of an edge.
         """
-        X, Y = where(im > thres)
+        X, Y = numpy.where(im > thres)
         try:
             idx = Y.argmin()
         except:
