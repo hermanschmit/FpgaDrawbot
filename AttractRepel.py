@@ -20,7 +20,6 @@ def _LennardJones2(R0, i_pt, pi2xij, xij, Fa):
 @jit
 def _density(pixel_val):
     x = 256 / (256 - pixel_val)
-    # x = 1. + math.log(pixel_val + 1, 2.)
     return x
 
 

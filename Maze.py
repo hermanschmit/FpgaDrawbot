@@ -81,7 +81,6 @@ class Maze:
         assert v < 256
         return float(v + 1) / 256.
 
-    # TODO @jit(cache=True)
     def brownian(self):
         mean = [0., 0.]
         cov = [[1., 0.], [0., 1.]]
@@ -95,7 +94,6 @@ class Maze:
             brownA[i] = n
         return brownA
 
-    # TODO @jit(cache=True)
     def faring(self):
         null = (0., 0.)
         fare = [null]  # initial element
@@ -112,13 +110,11 @@ class Maze:
         return np.array(fare)
 
     @staticmethod
-    # TODO @jit
     def density(pixel_val):
         x = 256 / (256 - pixel_val)
         # x = 1. + math.log(pixel_val + 1, 2.)
         return x
 
-    # TODO @jit
     def R0_val(self, i_pt):
         i_pt0 = max(min(round(i_pt[0]), self.imin.shape[0] - 1), 0)
         i_pt1 = max(min(round(i_pt[1]), self.imin.shape[1] - 1), 0)
@@ -158,7 +154,6 @@ class Maze:
             returnList.extend(fi_l)
         return np.array(returnList)
 
-    # TODO @jit
     def boundary_slow(self):
         """
         This is the brute force version
