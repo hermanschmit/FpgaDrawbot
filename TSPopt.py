@@ -3,44 +3,14 @@ from numba import jit
 import numpy
 from scipy import spatial
 
-
-def _is_on(a, b, c, tol=1e-5):
-    "Return true iff point c intersects the line segment from a to b."
-    # (or the degenerate case that all 3 points are coincident)
-    return (_collinear(a, b, c, tol)
-            and (_within(a[0], c[0], b[0]) if a[0] != b[0] else
-                 _within(a[1], c[1], b[1])))
-
-
-def _collinear(a, b, c, tol=1e-5):
-    "Return true iff a, b, and c all lie on the same line."
-    return abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) < tol
-
-
-def _within(p, q, r):
-    "Return true iff q is between p and r (inclusive)."
-    return p <= q <= r or r <= q <= p
+import Segments
 
 
 def simplify(s):
     print("Start len: "+str(len(s)))
-    if len(s) < 3:
-        return s
-    new_s = []
-    p0 = s[0]
-    p1 = s[1]
-    new_s.append(p0)
-    for p2 in s[2:]:
-        if _is_on(p0, p2, p1):
-            p1 = p2
-        else:
-            new_s.append(p1)
-            p0 = p1
-            p1 = p2
-    new_s.append(p2)
+    new_s = Segments.simplify_segment(s)
     print("End len: "+str(len(new_s)))
-
-    return numpy.array(new_s)
+    return new_s
 
 @jit
 def ptlen(a, b):
