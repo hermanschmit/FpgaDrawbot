@@ -30,7 +30,7 @@ def _within(p, q, r):
     return p <= q <= r or r <= q <= p
 
 
-def _simplifysegment(s):
+def simplify_segment(s):
     if len(s) < 3:
         return s
     new_s = []
@@ -74,7 +74,7 @@ class Segments:
         segmentSimp = []
         numpts = 0
         for s in self.segmentList:
-            ns = _simplifysegment(s)
+            ns = simplify_segment(s)
             segmentSimp.append(ns)
             numpts += len(ns)
         if numpts - 1 >= self.max_depth:

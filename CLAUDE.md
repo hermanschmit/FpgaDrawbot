@@ -49,4 +49,4 @@ Each drawing style is a generator class that builds a `Segments` object; everyth
 - **`TSPopt.py`** — 2-opt/3-opt local path improvement shared by Hilbert/Maze.
 - `LSystem.py`, `SimpleHilbertCurve.py`, `HilbertTest.py`, `CannyTestPattern1.py` are standalone experiments, not part of the main pipeline.
 
-Note: the collinearity/simplify helpers (`_is_on`, `_collinear`, `_within`) are duplicated between `Segments.py` and `TSPopt.py`; and the image/matrix coordinate convention (row, col) vs. (x, y) is swapped in several places — check `binList()` and the generator before changing axis handling.
+Note: point-path simplification lives in `Segments.simplify_segment()` (`TSPopt.simplify()` wraps it). The image/matrix coordinate convention (row, col) vs. (x, y) is swapped in several places — check `binList()` and the generator before changing axis handling.
