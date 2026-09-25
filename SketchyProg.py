@@ -1,10 +1,10 @@
 __author__ = 'herman'
 import Sketchy
 import sys
-import imageio
+import imageio.v2 as imageio
 
 def main(ifile_name, ofile_name1, ofile_name2, bin_fn="bfile.bin", levels=4, scale=True, transform=True):
-    sketch = Sketchy.Sketchy(imageio.imread(ifile_name,as_gray=True), levels, scale, transform)
+    sketch = Sketchy.Sketchy(imageio.imread(ifile_name, mode='F'), levels, scale, transform)
 
     for x in range(1000):
         sketch.draw_line()

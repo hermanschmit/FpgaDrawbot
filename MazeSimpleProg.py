@@ -1,12 +1,13 @@
 __author__ = 'herman'
 import sys
 
-import imageio
+import imageio.v2 as imageio
+import numpy as np
 import MazeSimple
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
-    im = imageio.imread(ifile_name, as_gray=True)
+    im = imageio.imread(ifile_name, mode='F')
     m = MazeSimple.MazeSimple(im,levels=3)
     m.optimize_loop2(20,1,2,10)
 
@@ -14,7 +15,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
     m.maze_to_segments()
     m.segments.segment2grad(interior=True, scale=2)
     m.segments.renderGrad()
-    im = m.segments.grad
+    im = m.segments.grad.astype(np.uint8)
     imageio.imsave(ofile_name1, im)
     if svg_file!=None:
         m.segments.svgwrite(svg_file)

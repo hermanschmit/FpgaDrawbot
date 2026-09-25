@@ -4,9 +4,9 @@ import random
 
 import numpy as np
 from numpy import reshape, uint8, ndarray
-from scipy import misc
 from scipy import ndimage
 from scipy.cluster.vq import kmeans, vq
+from skimage.transform import rescale
 
 
 def botTransform(coords, m, offset, s):
@@ -140,10 +140,11 @@ class Sketchy:
             width = image_matrix.shape[1]
             sc = self.BASELINE * alpha / width
             self.m = self.BASELINE * (1 - alpha) / 2
-            self.imat = misc.imresize(image_matrix, sc)
+            self.imat = (rescale(image_matrix, sc, anti_aliasing=True, preserve_range=True)
+                         .astype(uint8))
 
             if transform:
-                self.rot_mat = misc.imrotate(self.imat, 90)
+                self.rot_mat = np.rot90(self.imat)
                 self.target_mat = ndimage.interpolation.geometric_transform(self.rot_mat,
                                                                             botTransformReverse,
                                                                             output_shape=(512, 512),
@@ -155,7 +156,7 @@ class Sketchy:
         else:
             self.target_mat = image_matrix[:]
 
-        self.pen = tuple([z / 2 for z in self.target_mat.shape])
+        self.pen = tuple([z // 2 for z in self.target_mat.shape])
         (self.x, self.y) = self.target_mat.shape
 
         self.segment = []

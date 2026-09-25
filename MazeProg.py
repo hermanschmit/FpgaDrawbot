@@ -1,6 +1,6 @@
 __author__ = 'herman'
 import argparse
-import imageio
+import imageio.v2 as imageio
 import numpy as np
 import Maze
 
@@ -8,7 +8,7 @@ import Maze
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
          quant_levels=5,
          init_shape=Maze.Maze.INIT_DIAG):
-    im = imageio.imread(ifile_name, mode="F")
+    im = imageio.imread(ifile_name, mode='F')
     m = Maze.Maze(im,levels=quant_levels,init_shape=init_shape)
     m.optimize_loop2(1000,1,2,10)
     m.Fb = 0.0

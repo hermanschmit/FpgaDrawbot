@@ -4,9 +4,8 @@ Hilbert based imaging
 
 import queue
 
+import imageio.v2 as imageio
 import numpy
-from scipy import *
-from scipy import misc
 
 import Quantization
 import Segments
@@ -83,7 +82,7 @@ def rot_mooreI(n, x, y, rx, ry):
 
 
 def ptlen(a, b):
-    return hypot(a[0] - b[0], a[1] - b[1])
+    return numpy.hypot(a[0] - b[0], a[1] - b[1])
 
 
 def almost_equal(a, b):
@@ -134,17 +133,17 @@ class Hilbert:
 
     @staticmethod
     def power2(x):
-        y = 2 ** ceil(log2(x))
+        y = 2 ** numpy.ceil(numpy.log2(x))
         return y
 
     def hilbertSequence(self):
         q = queue.PriorityQueue()
 
-        (xL, yL) = self.power2(shape(self.stipple_im))
+        (xL, yL) = self.power2(numpy.shape(self.stipple_im))
         dim = max(xL, yL)
-        scaleX, scaleY = tuple([dim / z for z in shape(self.stipple_im)])
+        scaleX, scaleY = tuple([dim / z for z in numpy.shape(self.stipple_im)])
 
-        xS, yS = where(self.stipple_im == 0)
+        xS, yS = numpy.where(self.stipple_im == 0)
 
         for x, y in zip(xS, yS):
             xS2 = int(x * scaleX)
@@ -288,12 +287,12 @@ class Hilbert:
         nq = numpy.array([[x * 255 / (levels - 1)] for x in range(0, levels)])
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
 
-        misc.imsave("test.png", self.imin)
+        imageio.imwrite("test.png", numpy.clip(self.imin, 0, 255).astype(numpy.uint8))
 
         # stipple
         self.stipple()
-        self.grad = zeros(shape(self.imin), dtype=int)
-        misc.imsave("test2.png", self.stipple_im)
+        self.grad = numpy.zeros(numpy.shape(self.imin), dtype=int)
+        imageio.imwrite("test2.png", numpy.clip(self.stipple_im, 0, 255).astype(numpy.uint8))
 
         seg = self.hilbertSequence()
 
@@ -372,7 +371,7 @@ class Hilbert:
         """
         Convert grad == -1 to pixels
         """
-        x, y = where(self.grad == -1)
+        x, y = numpy.where(self.grad == -1)
         self.grad[:, :] = 255
         self.grad[x, y] = 0
 

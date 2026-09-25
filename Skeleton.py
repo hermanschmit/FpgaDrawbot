@@ -1,12 +1,15 @@
-#from skimage.morphology import skeletonize
-from skimage import draw
+from collections import defaultdict
+
 import numpy as np
-import Segments
-import Quantization
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import scipy.ndimage as ndi
+from skimage.filters import threshold_otsu
+from skimage.morphology import skeletonize, remove_small_objects, binary_closing, footprint_rectangle
+
+import Segments
 import EuclidMST
+
 
 def smooth_with_function_and_mask(image, function, mask):
     bleed_over = function(mask.astype(float))
@@ -16,162 +19,25 @@ def smooth_with_function_and_mask(image, function, mask):
     output_image = smoothed_image / (bleed_over + np.finfo(float).eps)
     return output_image
 
-def skeletonize(image):
-    """Return the skeleton of a binary image.
 
-    Thinning is used to reduce each connected component in a binary image
-    to a single-pixel wide skeleton.
-
-    Parameters
-    ----------
-    image : numpy.ndarray
-        A binary image containing the objects to be skeletonized. '1'
-        represents foreground, and '0' represents background. It
-        also accepts arrays of boolean values where True is foreground.
-
-    Returns
-    -------
-    skeleton : ndarray
-        A matrix containing the thinned image.
-
-    See also
-    --------
-    medial_axis
-
-    Notes
-    -----
-    The algorithm [1] works by making successive passes of the image,
-    removing pixels on object borders. This continues until no
-    more pixels can be removed.  The image is correlated with a
-    mask that assigns each pixel a number in the range [0...255]
-    corresponding to each possible pattern of its 8 neighbouring
-    pixels. A look up table is then used to assign the pixels a
-    value of 0, 1, 2 or 3, which are selectively removed during
-    the iterations.
-
-    Note that this algorithm will give different results than a
-    medial axis transform, which is also often referred to as
-    "skeletonization".
-
-    References
-    ----------
-    .. [1] A fast parallel algorithm for thinning digital patterns,
-       T. Y. ZHANG and C. Y. SUEN, Communications of the ACM,
-       March 1984, Volume 27, Number 3
-
-
-    Examples
-    --------
-    >>> X, Y = np.ogrid[0:9, 0:9]
-    >>> ellipse = (1./3 * (X - 4)**2 + (Y - 4)**2 < 3**2).astype(np.uint8)
-    >>> ellipse
-    array([[0, 0, 0, 1, 1, 1, 0, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 1, 1, 1, 1, 1, 0, 0],
-           [0, 0, 0, 1, 1, 1, 0, 0, 0]], dtype=uint8)
-    >>> skel = skeletonize(ellipse)
-    >>> skel
-    array([[0, 0, 0, 0, 0, 0, 0, 0, 0],
-           [0, 0, 0, 0, 0, 0, 0, 0, 0],
-           [0, 0, 0, 0, 0, 0, 0, 0, 0],
-           [0, 0, 0, 0, 1, 0, 0, 0, 0],
-           [0, 0, 0, 0, 1, 0, 0, 0, 0],
-           [0, 0, 0, 0, 1, 0, 0, 0, 0],
-           [0, 0, 0, 0, 1, 0, 0, 0, 0],
-           [0, 0, 0, 0, 0, 0, 0, 0, 0],
-           [0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=uint8)
-
-    """
-    # look up table - there is one entry for each of the 2^8=256 possible
-    # combinations of 8 binary neighbours. 1's, 2's and 3's are candidates
-    # for removal at each iteration of the algorithm.
-    lut = [0, 0, 0, 1, 0, 0, 1, 3, 0, 0, 3, 1, 1, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 3, 0, 3, 3,
-           0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 3, 0, 2, 2,
-           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-           2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 3, 0, 2, 0,
-           0, 1, 3, 1, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-           3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-           2, 3, 1, 3, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-           2, 3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 1, 0, 0, 0, 0, 2, 2, 0, 0, 2, 0, 0, 0]
-
-    # convert to unsigned int (this should work for boolean values)
-    skeleton = np.array(image).astype(np.uint8)
-
-    # check some properties of the input image:
-    #  - 2D
-    #  - binary image with only 0's and 1's
-    if skeleton.ndim != 2:
-        raise ValueError('Skeletonize requires a 2D array')
-    if not np.all(np.in1d(skeleton.flat, (0, 1))):
-        raise ValueError('Image contains values other than 0 and 1')
-
-    # create the mask that will assign a unique value based on the
-    #  arrangement of neighbouring pixels
-    mask = np.array([[1, 2, 4],
-                     [128, 0, 8],
-                     [64, 32, 16]], np.uint8)
-
-    pixelRemoved = True
-    while pixelRemoved:
-        pixelRemoved = False;
-
-        # assign each pixel a unique value based on its foreground neighbours
-        neighbours = ndi.correlate(skeleton, mask, mode='nearest')
-
-        # ignore background
-        neighbours *= skeleton
-
-        # use LUT to categorize each foreground pixel as a 0, 1, 2 or 3
-        codes = np.take(lut, neighbours)
-
-        # pass 1 - remove the 1's and 3's
-        code_mask = (codes == 1)
-        if np.any(code_mask):
-            pixelRemoved = True
-            skeleton[code_mask] = 0
-        code_mask = (codes == 3)
-        if np.any(code_mask):
-            pixelRemoved = True
-            skeleton[code_mask] = 0
-
-        # pass 2 - remove the 2's and 3's
-        neighbours = ndi.correlate(skeleton, mask, mode='nearest')
-        neighbours *= skeleton
-        codes = np.take(lut, neighbours)
-        code_mask = (codes == 2)
-        if np.any(code_mask):
-            pixelRemoved = True
-            skeleton[code_mask] = 0
-        code_mask = (codes == 3)
-        if np.any(code_mask):
-            pixelRemoved = True
-            skeleton[code_mask] = 0
-
-    return skeleton
+_NEIGHBOR_OFFSETS = [(-1, 0), (0, -1), (1, 0), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
 
 
 class Skeleton:
 
     def count_neighbors(self):
-        k = np.array([[1,1,1],
-                     [1,0,1],
-                      [1,1,1]])
+        k = np.array([[1, 1, 1],
+                      [1, 0, 1],
+                      [1, 1, 1]])
 
-        m = ndi.filters.convolve(self.skeleton,k,mode='constant',cval=0)
-        nc = np.multiply(m,self.skeleton)
+        m = ndi.filters.convolve(self.skeleton, k, mode='constant', cval=0)
+        nc = np.multiply(m, self.skeleton)
         self.neighbor_count = nc
 
     def euclidMstOrder(self):
         emst2 = EuclidMST.EuclidMST(self.segments.segmentList)  # TODO fix
         emst2.segmentOrdering()
         self.segments.segmentList = emst2.newSegmentTree  # TODO fix
-
-
 
     def __init__(self, image_matrix, sigma=0.5):
 
@@ -182,75 +48,199 @@ class Skeleton:
         else:
             self.imin = image_matrix
 
-        self.centroids = Quantization.measCentroid(self.imin, 2)
-
-        nq = np.array([[x * 255] for x in range(0, 2)])
-        self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
         plt.imshow(self.imin, cmap=cm.gray)
         plt.savefig("figStartOrig.png")
         plt.clf()
 
-        self.ibin = np.zeros(self.imin.shape, dtype=np.uint8)
-        x0,y0 = np.where(self.imin == 0)
-        self.ibin[x0,y0] = 1
+        # Otsu threshold on the (blurred) grayscale image separates ink from paper
+        # more robustly than a global 2-cluster k-means, especially for faint/anti-
+        # aliased strokes. Close 1px gaps and drop speckle noise before thinning.
+        thresh = threshold_otsu(self.imin)
+        ibin = self.imin < thresh
+        ibin = binary_closing(ibin, footprint_rectangle((2, 2)))
+        ibin = remove_small_objects(ibin, min_size=4, connectivity=2)
+        self.ibin = ibin.astype(np.uint8)
 
-        skel = skeletonize(self.ibin)
-        self.skeleton = skel.astype(np.uint8)
+        self.skeleton = skeletonize(self.ibin.astype(bool)).astype(np.uint8)
         plt.imshow(self.skeleton, cmap=cm.gray)
         plt.savefig("figStartSkel.png")
         plt.clf()
 
         self.segments = Segments.Segments()
+        self.count_neighbors()
+        self.trace_skeleton()
+        print("skeleton pixels:", int(np.sum(self.skeleton)),
+              "traced into", len(self.segments.segmentList), "segments")
 
+    def _skel_neighbors(self, x, y):
+        X, Y = self.skeleton.shape
+        result = []
+        for (i, j) in _NEIGHBOR_OFFSETS:
+            nx, ny = x + i, y + j
+            if 0 <= nx < X and 0 <= ny < Y and self.skeleton[nx, ny] == 1:
+                result.append((nx, ny))
+        return result
 
-        for neighbor_limit in range(1,5):
-            while True:
-                self.count_neighbors()
-                for internal_limit in range(1,neighbor_limit+1):
-                    startx, starty = np.where(self.neighbor_count == internal_limit)
-                    if len(startx) > 0:
-                        break
-                if len(startx) == 0:
-                    break
-                for (x,y) in zip(startx, starty):
-                    if self.skeleton[x,y] == 1:
-                        self.follow_line(x,y)
-        print(np.sum(self.skeleton))
-        print(np.sum(self.neighbor_count))
-        print(np.max(self.neighbor_count))
-        assert (np.sum(self.neighbor_count) == 0)
-
-    def follow_line(self,x,y):
-        X,Y = self.skeleton.shape
-        segment = [[x, y]]
-        self.skeleton[x, y] = 0
+    def _walk_chain(self, node, first_step, ring_start=None):
+        """
+        Walk from a node pixel through a run of degree-2 pixels to the next
+        node (or a dead end). If ring_start is given, also stop (and close
+        the chain) on returning to it, for tracing loops with no junctions.
+        """
+        chain = [node, first_step]
+        prev, cur = node, first_step
         while True:
-            # search for neighbor
-            # decrement neighbor counts
-            adjacent_counter = self.neighbor_count[x, y]
-            done = adjacent_counter > 1 or adjacent_counter == 0
-            self.neighbor_count[x, y] = 0
-
-            for (i, j) in [(-1, 0), (0, -1), (1, 0), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
-                x_n = x + i
-                y_n = y + j
-
-                if (x_n < 0) or (y_n < 0) or (x_n >= X) or (y_n >= Y):
-                    continue
-                if self.skeleton[x_n, y_n] == 1:
-                    self.neighbor_count[x_n, y_n] -= 1
-                    x_save, y_save = x_n, y_n
-
-            if not done:
-                segment.append([x_save, y_save])
-                x, y = x_save, y_save
-                self.skeleton[x, y] = 0
-            else:
+            if ring_start is not None and cur == ring_start:
                 break
-        if len(segment) > 1:
-            self.segments.append(segment)
+            nbrs = [n for n in self._skel_neighbors(*cur) if n != prev]
+            deg = len(self._skel_neighbors(*cur))
+            if deg != 2 or not nbrs:
+                break
+            nxt = nbrs[0]
+            chain.append(nxt)
+            prev, cur = cur, nxt
+        return chain
 
+    @staticmethod
+    def _tangent(chain, at_start, lookahead=3):
+        """Unit direction vector pointing away from one end of a pixel chain."""
+        pts = chain if at_start else list(reversed(chain))
+        n = min(lookahead, len(pts) - 1)
+        if n <= 0:
+            return np.zeros(2)
+        p0 = np.array(pts[0], dtype=float)
+        p1 = np.array(pts[n], dtype=float)
+        v = p1 - p0
+        norm = np.linalg.norm(v)
+        if norm == 0:
+            return np.zeros(2)
+        return v / norm
 
+    def trace_skeleton(self):
+        """
+        Reduce the pixel skeleton to a graph -- junction/endpoint pixels as
+        nodes, runs of degree-2 pixels as edges -- then walk each junction
+        "straight through" by pairing its incident edges by minimum turning
+        angle. This traces a stroke that crosses another stroke as one
+        continuous path instead of cutting it into fragments at every
+        crossing.
+        """
+        xs, ys = np.where(self.skeleton == 1)
+        nodes = set()
+        for x, y in zip(xs, ys):
+            deg = self.neighbor_count[x, y]
+            if deg == 1 or deg >= 3:
+                nodes.add((x, y))
 
+        chains = []  # chains[chain_id] = [pixel, pixel, ...] from node A to node B
+        incident = defaultdict(list)  # node -> [(chain_id, 'A'|'B'), ...]
+        claimed_start = set()  # (node, first_step) half-edges already walked
 
+        for node in nodes:
+            for nbr in self._skel_neighbors(*node):
+                if (node, nbr) in claimed_start:
+                    continue
+                chain = self._walk_chain(node, nbr)
+                end_node = chain[-1]
+                chain_id = len(chains)
+                chains.append(chain)
+                incident[node].append((chain_id, 'A'))
+                incident[end_node].append((chain_id, 'B'))
+                claimed_start.add((node, nbr))
+                if len(chain) >= 2:
+                    claimed_start.add((end_node, chain[-2]))
 
+        used_chain_pixels = set()
+        for chain in chains:
+            used_chain_pixels.update(chain[1:-1])
+
+        # Closed loops with no junctions/endpoints at all (pure rings).
+        visited = np.zeros(self.skeleton.shape, dtype=bool)
+        for x, y in zip(xs, ys):
+            visited[x, y] = (x, y) in used_chain_pixels or (x, y) in nodes
+        for x, y in zip(xs, ys):
+            if visited[x, y]:
+                continue
+            nbrs = self._skel_neighbors(x, y)
+            if not nbrs:
+                continue
+            chain = self._walk_chain((x, y), nbrs[0], ring_start=(x, y))
+            for (px, py) in chain:
+                visited[px, py] = True
+            if len(chain) > 2:
+                self.segments.append(np.array(chain))
+
+        # Pair incident edges at every node by "straightest continuation" so a
+        # path passing through a junction is not cut there.
+        pair_of = {}
+        for node, edges in incident.items():
+            if len(edges) < 2:
+                continue
+            dirs = {(cid, end): self._tangent(chains[cid], at_start=(end == 'A'))
+                    for (cid, end) in edges}
+            remaining = list(edges)
+            while len(remaining) >= 2:
+                best = None
+                for i in range(len(remaining)):
+                    for j in range(i + 1, len(remaining)):
+                        d = float(np.dot(dirs[remaining[i]], dirs[remaining[j]]))
+                        if best is None or d < best[0]:
+                            best = (d, i, j)
+                _, i, j = best
+                a, b = remaining[i], remaining[j]
+                pair_of[a] = b
+                pair_of[b] = a
+                for idx in sorted((i, j), reverse=True):
+                    remaining.pop(idx)
+
+        def other_end(cid, end):
+            return 'B' if end == 'A' else 'A'
+
+        def orient(chain, end):
+            return chain if end == 'A' else list(reversed(chain))
+
+        # Walk from every loose end (endpoints, and any unpaired junction
+        # stub) through the paired junctions, merging chains into one path.
+        visited_halfedge = set()
+        for node, edges in incident.items():
+            for (cid, end) in edges:
+                if (cid, end) in pair_of or (cid, end) in visited_halfedge:
+                    continue
+                path = list(orient(chains[cid], end))
+                visited_halfedge.add((cid, end))
+                cur = (cid, other_end(cid, end))
+                visited_halfedge.add(cur)
+                while cur in pair_of:
+                    nxt = pair_of[cur]
+                    if nxt in visited_halfedge:
+                        break
+                    n_cid, n_end = nxt
+                    seg = orient(chains[n_cid], n_end)
+                    path.extend(seg[1:])
+                    visited_halfedge.add(nxt)
+                    cur = (n_cid, other_end(n_cid, n_end))
+                    visited_halfedge.add(cur)
+                if len(path) > 1:
+                    self.segments.append(np.array(path))
+
+        # Anything left over is a closed loop traced entirely through paired
+        # junctions (no loose end to start from).
+        for cid, chain in enumerate(chains):
+            if (cid, 'A') in visited_halfedge:
+                continue
+            path = list(chain)
+            visited_halfedge.add((cid, 'A'))
+            cur = (cid, 'B')
+            visited_halfedge.add(cur)
+            while cur in pair_of:
+                nxt = pair_of[cur]
+                if nxt in visited_halfedge:
+                    break
+                n_cid, n_end = nxt
+                seg = orient(chains[n_cid], n_end)
+                path.extend(seg[1:])
+                visited_halfedge.add(nxt)
+                cur = (n_cid, other_end(n_cid, n_end))
+                visited_halfedge.add(cur)
+            if len(path) > 1:
+                self.segments.append(np.array(path))

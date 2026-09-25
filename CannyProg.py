@@ -1,14 +1,15 @@
 import sys
 from time import time
 
-import imageio
+import imageio.v2 as imageio
+import numpy as np
 
 import Canny
 import Segments
 
 
 def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
-    im = imageio.imread(ifile_name, as_gray=True)
+    im = imageio.imread(ifile_name, mode='F')
     t1 = time()
     canny = Canny.Canny(im,sigma=1.0)
     print("Canny Done:", time() - t1)
@@ -22,7 +23,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     canny.segments.simplify()
     canny.segments.segment2grad(interior=True)
     canny.segments.renderGrad()
-    im = canny.segments.grad
+    im = canny.segments.grad.astype(np.uint8)
     imageio.imsave(ofile_name1, im)
     canny.segments.svgwrite("test.svg")
     segNew = Segments.Segments()

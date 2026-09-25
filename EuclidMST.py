@@ -1,3 +1,5 @@
+import math
+
 import numpy
 import scipy
 from scipy.sparse import lil_matrix
@@ -34,13 +36,15 @@ class EuclidMST:
 
     def dfo_nonrec(self, node):
         (narray, pred) = scipy.sparse.csgraph.depth_first_order(self.spnTree, node, False, True)
-        childCount = numpy.zeros(narray.shape)
-        tree = []
+        # childCount/tree are indexed by real graph node id (0..self.size-1),
+        # not by discovery-order position, so both must be sized to self.size
+        # -- narray can be shorter than self.size if the graph is disconnected.
+        childCount = numpy.zeros(self.size)
+        tree = [[] for _ in range(self.size)]
         for i in narray[::-1]:
-            tree.append([])
             if i == node: continue
             childCount[pred[i]] += (self.distMatrix[pred[i], i] + childCount[i])
-        for i in range(0, len(narray)):
+        for i in narray:
             if pred[i] == -9999: continue
             tree[pred[i]].append((i, childCount[i]))
         for l in tree:
@@ -66,6 +70,25 @@ class EuclidMST:
             j += 1
 
         points = numpy.array(pl, float)
+
+        # Qhull can leave a point untriangulated (and so disconnected from
+        # the rest of the graph, which later crashes dfo_nonrec) when the
+        # input has exact duplicate coordinates -- common here since several
+        # segments can legitimately share a single pixel as an endpoint
+        # (e.g. a skeleton junction). Nudge duplicates apart by a sub-pixel
+        # epsilon so every point still gets triangulated; this is far too
+        # small to affect which edges the MST picks.
+        seen = {}
+        golden_angle = 2.399963229728653
+        for idx in range(len(points)):
+            key = (points[idx, 0], points[idx, 1])
+            count = seen.get(key, 0)
+            if count > 0:
+                angle = count * golden_angle
+                points[idx, 0] += 1e-3 * count * math.cos(angle)
+                points[idx, 1] += 1e-3 * count * math.sin(angle)
+            seen[key] = count + 1
+
         self.tri = scipy.spatial.Delaunay(points)
         print("Delaunay Done")
         self.size = len(self.tri.points)
