@@ -1,7 +1,9 @@
 import math
+import os
 import statistics
 import sys
 import timeit
+import uuid
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -16,6 +18,33 @@ import Quantization
 import Segments
 import TSPopt
 import Skeleton
+
+
+def _save_debug_image(name, dpi=None):
+    """
+    Best-effort debug output: two concurrent runs writing plain, fixed or
+    loop-count-only filenames (figStartOrig.png, img/fig00199.png, ...) can
+    momentarily collide on the same path and hit an OS-level write error --
+    each Maze/Skeleton instance tags its own filenames to avoid that (see
+    Maze._run_tag), but this still guards against any other transient
+    failure (antivirus, cloud-sync locking, ...) so a lost preview frame
+    doesn't take down an otherwise-successful multi-minute run.
+    """
+    try:
+        plt.savefig(name, dpi=dpi)
+    except OSError as e:
+        print("Warning: failed to save debug image %r (%s); continuing." % (name, e))
+    finally:
+        plt.clf()
+
+
+def _write_debug_svg(segments, name):
+    """Same best-effort reasoning as _save_debug_image, for the periodic
+    TSP debug .svg dumps in optimize_loop2."""
+    try:
+        segments.svgwrite(name)
+    except OSError as e:
+        print("Warning: failed to write debug svg %r (%s); continuing." % (name, e))
 
 
 @jit
@@ -122,31 +151,37 @@ class Maze:
         return out
 
     def resampling(self):
-        tmp3 = []
-        ptA = self.maze_path[0]
-        tmp3.append(ptA)
-        r0_a, _ = self.R0_val(ptA)
-        skip = False
-        for ptB in self.maze_path[1:]:
-            skip = False
-            r0_b, _ = self.R0_val(ptB)
-            d = _ptlen_local(ptA, ptB)
-            r0_ab = (r0_a + r0_b) / 2
+        # Insert/skip/keep decisions only ever compare each point against
+        # its ORIGINAL predecessor in self.maze_path (never against the
+        # filtered/growing tmp3), so every decision is independent and the
+        # expensive per-point work -- R0_val's pixel lookup and the
+        # consecutive-point distance -- can be computed for the whole path
+        # at once instead of one point at a time in a Python loop calling a
+        # jitted leaf function per point.
+        maze_path = np.asarray(self.maze_path, dtype=np.float64)
+        n = len(maze_path)
+        r0_arr, _ = AttractRepel.r0_r1_vectorized(maze_path, self.imin, self.R0, self.R1_R0)
+        diffs = maze_path[1:] - maze_path[:-1]
+        d = np.hypot(diffs[:, 0], diffs[:, 1])
+        r0_ab = (r0_arr[:-1] + r0_arr[1:]) / 2.0
 
-            if d > self.KMAX * r0_ab:
-                ptAB = np.multiply(np.add(ptA, ptB), 0.5)
-                tmp3.append(ptAB)
-                tmp3.append(ptB)
-            elif d < self.KMIN * r0_ab:
-                skip = True
+        insert_mask = d > self.KMAX * r0_ab
+        skip_mask = d < self.KMIN * r0_ab
+        # The last point is never actually dropped, no matter what its own
+        # distance test says -- matches the original's "reattach if the
+        # final point was skipped" special case.
+        skip_mask[-1] = False
+        midpoints = 0.5 * (maze_path[:-1] + maze_path[1:])
+
+        tmp3 = [maze_path[0]]
+        for i in range(n - 1):
+            if insert_mask[i]:
+                tmp3.append(midpoints[i])
+                tmp3.append(maze_path[i + 1])
+            elif skip_mask[i]:
+                continue
             else:
-                tmp3.append(ptB)
-            ptA = ptB
-            r0_a = r0_b
-
-        # if the last value was skipped, reattach it.
-        if skip:
-            tmp3.append(ptB)
+                tmp3.append(maze_path[i + 1])
         self.maze_path = tmp3
         self.lenList.append(len(self.maze_path))
 
@@ -164,30 +199,34 @@ class Maze:
             boundary = self.boundary_slow()
 
             # move each node
-            netforce = np.add(boundary, np.add(fairing, attract_repel))
-            deltaforce = [np.hypot(a[0], a[1]) for a in netforce]
+            netforce = boundary + fairing + attract_repel
+            deltaforce = np.hypot(netforce[:, 0], netforce[:, 1])
 
             n_neighbor_d2, _ = self.kdtree.query(self.maze_path, 2)
-            n_neighbor_d = [x[1] for x in n_neighbor_d2]
+            n_neighbor_d = n_neighbor_d2[:, 1]
 
-            ceil_force = list()
-            for nf, nn_d, df in zip(netforce, n_neighbor_d, deltaforce):
-                if df > nn_d / 2:
-                    ceil_force.append(np.multiply(nf, nn_d / (4. * df)))
-                else:
-                    ceil_force.append(nf)
+            # Cap any move that would overshoot halfway to the nearest other
+            # node. Only points that actually get capped need the division,
+            # but np.where evaluates both branches for every element, so
+            # some elements harmlessly divide by a deltaforce of 0 here
+            # (the result is discarded by np.where for those, same as the
+            # original's if/else skipped the division for them entirely).
+            with np.errstate(divide='ignore', invalid='ignore'):
+                scale = np.where(deltaforce > n_neighbor_d / 2,
+                                 n_neighbor_d / (4. * deltaforce), 1.0)
+            ceil_force = netforce * scale[:, np.newaxis]
 
-            ceil_force = np.array(ceil_force)
+            netmove = ceil_force + brownian
 
-            netmove = np.add(ceil_force, brownian)
+            maze_path = np.asarray(self.maze_path, dtype=np.float64)
+            tmp2 = maze_path + netmove
+            tmp3 = np.clip(tmp2,
+                          [self.xmin + 1, self.ymin + 1],
+                          [self.bndry_xmax - 1, self.bndry_ymax - 1])
+            tmp3[0] = maze_path[0]
+            tmp3[-1] = maze_path[-1]
 
-            tmp2 = np.add(self.maze_path, netmove)
-            tmp3 = [[min(self.bndry_xmax - 1, max(self.xmin + 1, x)),
-                     min(self.bndry_ymax - 1, max(self.ymin + 1, y))] for x, y in tmp2]
-            tmp3[0] = self.maze_path[0]
-            tmp3[-1] = self.maze_path[-1]
-
-            self.maze_path = np.array(tmp3)
+            self.maze_path = tmp3
 
             # resampling
             self.resampling()
@@ -200,7 +239,7 @@ class Maze:
 
             if loop_count % tsp == 0:
                 self.maze_to_segments()
-                self.segments.svgwrite("svg/TSP_" + str(loop_count) + "a.svg")
+                _write_debug_svg(self.segments, "svg/TSP_" + str(loop_count) + "_" + self._run_tag + "a.svg")
                 while True:
                     delta, seg1 = TSPopt.threeOptLocal(self.maze_path, 30)
                     self.maze_path = seg1
@@ -208,17 +247,17 @@ class Maze:
                     if delta == 0.:
                         break
                 self.maze_to_segments()
-                self.segments.svgwrite("svg/TSP_" + str(loop_count) + "b.svg")
+                _write_debug_svg(self.segments, "svg/TSP_" + str(loop_count) + "_" + self._run_tag + "b.svg")
 
             if img_dump > 0 and loop_count % img_dump == 0:
-                self.plotMazeImage("img/fig" + str(loop_count).zfill(5) + ".png")
+                self.plotMazeImage("img/fig" + str(loop_count).zfill(5) + "_" + self._run_tag + ".png")
                 elapsed = timeit.default_timer() - start_time
                 start_time = timeit.default_timer()
                 print(str(loop_count) + " " + str(len(self.maze_path)) + " " + str(elapsed))
 
             loop_count += 1
 
-        self.plotMazeImage("figLast.png", points=True)
+        self.plotMazeImage("figLast_%s.png" % self._run_tag, points=True)
 
     def stopping(self, equil_ratio):
         if len(self.lenList) > 40:
@@ -277,8 +316,7 @@ class Maze:
             plt.plot(plt_x, plt_y, '-', linewidth=0.3)
 
         plt.gca().set_aspect('equal', adjustable='box')
-        plt.savefig(name,dpi=600)
-        plt.clf()
+        _save_debug_image(name, dpi=600)
 
     def maze_to_segments(self):
         self.segments = Segments.Segments()
@@ -302,6 +340,11 @@ class Maze:
 
         self.lenList = list()
 
+        # Included in every debug-output filename below so two concurrent
+        # runs (e.g. on different images) never fight over the same path --
+        # see _save_debug_image.
+        self._run_tag = "%d_%s" % (os.getpid(), uuid.uuid4().hex[:6])
+
         self.imin = image_matrix
         self.xmin = 0
         self.ymin = 0
@@ -322,8 +365,7 @@ class Maze:
         print(nq)
         self.imin = Quantization.quantMatrix(self.imin, nq, self.centroids)
         plt.imshow(self.imin, cmap=cm.gray)
-        plt.savefig("figStartOrig.png")
-        plt.clf()
+        _save_debug_image("figStartOrig_%s.png" % self._run_tag)
 
         # self.R0_B = self.density(nq[-1][0])
 
@@ -378,7 +420,7 @@ class Maze:
 
             brownian = self.brownian()
             self.maze_path = np.add(self.maze_path, brownian)
-            self.plotMazeImage("figStartMoore.png",superimpose=True)
+            self.plotMazeImage("figStartMoore_%s.png" % self._run_tag,superimpose=True)
 
         elif init_shape == self.INIT_FASS:
             """ FASS is for Filling, self-Avoiding, Simple, and self-Similar.
@@ -403,7 +445,7 @@ class Maze:
                               (self.imin.shape[1] * (pt[1]-path1min)) / (dim - 1)))
             path3 = [(0.95 * x + 0.025 * self.imin.shape[0], 0.95 * y + 0.025 * self.imin.shape[1]) for x, y in path2]
             self.maze_path = path3
-            self.plotMazeImage("figStartFass0.png",superimpose=True)
+            self.plotMazeImage("figStartFass0_%s.png" % self._run_tag,superimpose=True)
             self.maze_path = TSPopt.simplify(self.maze_path)
             for _ in range(10):
                 self.resampling()
@@ -418,7 +460,7 @@ class Maze:
             for i in range(10):
                 self.resampling()
 
-            self.plotMazeImage("figStartFass.png",superimpose=True)
+            self.plotMazeImage("figStartFass_%s.png" % self._run_tag,superimpose=True)
 
         elif init_shape == self.INIT_DIAG:
             # simple diagonal
@@ -453,7 +495,7 @@ class Maze:
                 if delta == 0.:
                     break
                 size = max(5,size-5)
-            self.plotMazeImage("figStartSkeleton.png",superimpose=True)
+            self.plotMazeImage("figStartSkeleton_%s.png" % self._run_tag,superimpose=True)
 
 
         self.seg = Segments.Segments()

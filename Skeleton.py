@@ -1,4 +1,6 @@
 from collections import defaultdict
+import os
+import uuid
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +20,22 @@ def smooth_with_function_and_mask(image, function, mask):
     smoothed_image = function(masked_image)
     output_image = smoothed_image / (bleed_over + np.finfo(float).eps)
     return output_image
+
+
+def _save_debug_image(name):
+    """
+    Best-effort debug output -- see Maze._save_debug_image for why: two
+    concurrent runs writing these fixed filenames can momentarily collide
+    on the same path and hit an OS-level write error, so each Skeleton
+    instance tags its own filenames (self._run_tag) and this still guards
+    against any other transient failure so it doesn't take down the run.
+    """
+    try:
+        plt.savefig(name)
+    except OSError as e:
+        print("Warning: failed to save debug image %r (%s); continuing." % (name, e))
+    finally:
+        plt.clf()
 
 
 _NEIGHBOR_OFFSETS = [(-1, 0), (0, -1), (1, 0), (0, 1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
@@ -41,6 +59,10 @@ class Skeleton:
 
     def __init__(self, image_matrix, sigma=0.5):
 
+        # Included in every debug-output filename below so two concurrent
+        # runs never fight over the same path -- see _save_debug_image.
+        self._run_tag = "%d_%s" % (os.getpid(), uuid.uuid4().hex[:6])
+
         if sigma >= 0.:
             mask = np.ones(image_matrix.shape, dtype=bool)
             fsmooth = lambda x: ndi.gaussian_filter(x, sigma, mode='constant')
@@ -49,8 +71,7 @@ class Skeleton:
             self.imin = image_matrix
 
         plt.imshow(self.imin, cmap=cm.gray)
-        plt.savefig("figStartOrig.png")
-        plt.clf()
+        _save_debug_image("figStartOrig_%s.png" % self._run_tag)
 
         # Otsu threshold on the (blurred) grayscale image separates ink from paper
         # more robustly than a global 2-cluster k-means, especially for faint/anti-
@@ -63,8 +84,7 @@ class Skeleton:
 
         self.skeleton = skeletonize(self.ibin.astype(bool)).astype(np.uint8)
         plt.imshow(self.skeleton, cmap=cm.gray)
-        plt.savefig("figStartSkel.png")
-        plt.clf()
+        _save_debug_image("figStartSkel_%s.png" % self._run_tag)
 
         self.segments = Segments.Segments()
         self.count_neighbors()

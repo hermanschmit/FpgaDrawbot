@@ -62,6 +62,41 @@ class MazeFaringKink(TestCase):
         np.testing.assert_allclose(fare[2], expected)
 
 
+class MazeResamplingAllKept(TestCase):
+    # With a constant image, R0_val (and so KMAX*r0/KMIN*r0) is the same
+    # everywhere; points spaced entirely within [KMIN*r0, KMAX*r0] of each
+    # other should come back unchanged.
+    def runTest(self):
+        m = _small_maze()
+        m.imin = np.zeros((30, 30))  # density(0) = 256/256 = 1 -> r0 = R0 = 2.0
+        # KMAX*r0 = 1.4, KMIN*r0 = 0.5; spacing of 1.0 is between both.
+        path = np.array([[0., float(i)] for i in range(5)])
+        m.maze_path = path.copy()
+        m.resampling()
+        np.testing.assert_array_equal(np.asarray(m.maze_path), path)
+
+
+class MazeResamplingInsertSkipAndLastPoint(TestCase):
+    '''
+    Same constant-image setup as above (r0 = 2.0 everywhere, so insert
+    triggers above distance 1.4 and skip triggers below distance 0.5),
+    exercising all three decisions plus the "the last point is never
+    actually dropped" special case in one path:
+      (0,0)-(0,1):   d=1.0  -> keep (0,1)
+      (0,1)-(0,1.2): d=0.2  -> skip (0,1.2)
+      (0,1.2)-(0,3): d=1.8  -> insert midpoint (0,2.1), keep (0,3)
+      (0,3)-(0,3.1): d=0.1  -> would skip, but it's the last point
+    '''
+    def runTest(self):
+        m = _small_maze()
+        m.imin = np.zeros((30, 30))
+        m.maze_path = np.array([[0., 0.], [0., 1.], [0., 1.2], [0., 3.], [0., 3.1]])
+        m.resampling()
+        np.testing.assert_allclose(
+            np.asarray(m.maze_path),
+            [[0., 0.], [0., 1.], [0., 2.1], [0., 3.], [0., 3.1]])
+
+
 class MazeAttractRepelWiring(TestCase):
     # attract_repel() should be exactly what you get from calling
     # AttractRepel's own pipeline with this Maze instance's own state --
