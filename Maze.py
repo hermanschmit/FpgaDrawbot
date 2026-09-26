@@ -147,12 +147,22 @@ class Maze:
         mapfunc = partial(AttractRepel.attract_repel_segment, im=self.imin, maze_path=self.maze_path,
                           kdtree=self.kdtree, R0=self.R0, R1_R0=self.R1_R0, Fa=self.Fa, chunk=self.CHUNK)
 
-        with cf.ProcessPoolExecutor(self.PROCESSORS) as pool:
-            x = pool.map(mapfunc, range(0, len(self.maze_path), self.CHUNK))
+        # optimize_loop2 calls this every iteration (often hundreds of times per
+        # run); reuse one worker pool across all of them instead of spawning a
+        # fresh set of processes -- expensive on Windows -- each call.
+        if getattr(self, '_pool', None) is None:
+            self._pool = cf.ProcessPoolExecutor(self.PROCESSORS)
+        x = self._pool.map(mapfunc, range(0, len(self.maze_path), self.CHUNK))
         returnList = []
         for fi_l in x:
             returnList.extend(fi_l)
         return np.array(returnList)
+
+    def close_pool(self):
+        """Shut down the worker pool started by attract_repel_parallel, if any."""
+        if getattr(self, '_pool', None) is not None:
+            self._pool.shutdown(wait=True)
+            self._pool = None
 
     def boundary_slow(self):
         """

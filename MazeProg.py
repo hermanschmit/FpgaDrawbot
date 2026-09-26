@@ -10,9 +10,12 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
          init_shape=Maze.Maze.INIT_DIAG):
     im = imageio.imread(ifile_name, mode='F')
     m = Maze.Maze(im,levels=quant_levels,init_shape=init_shape)
-    m.optimize_loop2(1000,1,2,10)
-    m.Fb = 0.0
-    m.optimize_loop2(20,-1,2,10)
+    try:
+        m.optimize_loop2(1000,1,2,10)
+        m.Fb = 0.0
+        m.optimize_loop2(20,-1,2,10)
+    finally:
+        m.close_pool()
 
     m.mazeSegmentOptimize()
     m.maze_to_segments()
