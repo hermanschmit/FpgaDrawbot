@@ -1,10 +1,7 @@
-import concurrent.futures as cf
 import math
 import statistics
 import sys
 import timeit
-from functools import partial
-import multiprocessing
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -26,17 +23,6 @@ def _ptlen_local(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-@jit
-def _ptlen2_local(a, b):
-    return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
-
-
-@jit
-def _repulse(r):
-    force = (r ** 12)
-    return force
-
-
 class Maze:
     K0 = 0.1  # [0.1;0.3]
     K1 = 0.15  # [1.5*K0; 2.5*K0]
@@ -52,8 +38,6 @@ class Maze:
     R1_R0 = 2.5
     R0_B = 10.
     TAKEN_SAMPLE_SIZE = 20
-    CHUNK = 4000
-    PROCESSORS = 4
 
     INIT_MOORE = 1
     INIT_FASS = 3
@@ -95,19 +79,11 @@ class Maze:
         return brownA
 
     def faring(self):
-        null = (0., 0.)
-        fare = [null]  # initial element
-        for i in range(1,
-                       len(self.maze_path) - 1):
-            pim1 = np.array(self.maze_path[i - 1])
-            pi = np.array(self.maze_path[i])
-            pip1 = np.array(self.maze_path[i + 1])
-            f = self.Ff * (np.multiply((pim1 + pip1), 0.5) - pi)
-            # f = self.Ff * (((pim1*self.delta(i-1) + pip1*self.delta(i+1))/(self.delta(i-1)+self.delta(i+1))) - pi)
-            fare.append(f)
-        fare.append(null)  # final element
-        #assert len(fare) == len(self.maze_path)
-        return np.array(fare)
+        p = np.asarray(self.maze_path, dtype=np.float64)
+        fare = np.zeros_like(p)
+        if len(p) > 2:
+            fare[1:-1] = self.Ff * (0.5 * (p[:-2] + p[2:]) - p[1:-1])
+        return fare
 
     @staticmethod
     def density(pixel_val):
@@ -121,75 +97,29 @@ class Maze:
         r0 = self.R0 * self.density(self.imin[int(i_pt0)][int(i_pt1)])
         return r0, self.R1_R0 * r0
 
-    def attract_repel_serial(self):
+    def attract_repel(self):
         """
-        This is the brute force version
-        Returns:
-        attract repel vector
-        """
-        self.kdtree = spatial.cKDTree(self.maze_path)
-        returnList = []
-        for x in range(0, len(self.maze_path)):
-            fi_l = AttractRepel.attract_repel_segment(x, im=self.imin, maze_path=self.maze_path,
-                                                      kdtree=self.kdtree, R0=self.R0, R1_R0=self.R1_R0,
-                                                      Fa=self.Fa, chunk=1)
-            returnList.extend(fi_l)
-        return np.array(returnList)
-
-    def attract_repel_parallel(self):
-        """
-        This is the parallel version, attempt 1
-        Returns:
-        attract repel vector
+        Attract/repel force vector, computed as one compiled, multi-threaded
+        pass instead of a Python loop calling small jitted leaf functions per
+        point/neighbor pair (that dispatch overhead, not the math itself, was
+        the actual bottleneck -- see AttractRepel.attract_repel_kernel).
         """
         self.kdtree = spatial.cKDTree(self.maze_path)
-
-        mapfunc = partial(AttractRepel.attract_repel_segment, im=self.imin, maze_path=self.maze_path,
-                          kdtree=self.kdtree, R0=self.R0, R1_R0=self.R1_R0, Fa=self.Fa, chunk=self.CHUNK)
-
-        # optimize_loop2 calls this every iteration (often hundreds of times per
-        # run); reuse one worker pool across all of them instead of spawning a
-        # fresh set of processes -- expensive on Windows -- each call.
-        if getattr(self, '_pool', None) is None:
-            self._pool = cf.ProcessPoolExecutor(self.PROCESSORS)
-        x = self._pool.map(mapfunc, range(0, len(self.maze_path), self.CHUNK))
-        returnList = []
-        for fi_l in x:
-            returnList.extend(fi_l)
-        return np.array(returnList)
-
-    def close_pool(self):
-        """Shut down the worker pool started by attract_repel_parallel, if any."""
-        if getattr(self, '_pool', None) is not None:
-            self._pool.shutdown(wait=True)
-            self._pool = None
+        maze_path = np.asarray(self.maze_path, dtype=np.float64)
+        r0_arr, r1_arr = AttractRepel.r0_r1_vectorized(maze_path, self.imin, self.R0, self.R1_R0)
+        offsets, flat_j = AttractRepel.build_candidate_csr(maze_path, self.kdtree, r1_arr)
+        return AttractRepel.attract_repel_kernel(maze_path, r0_arr, r1_arr, offsets, flat_j, self.Fa)
 
     def boundary_slow(self):
         """
-        This is the brute force version
-        Returns:
-        attract repel vector
+        Repulsive force from the bounding rectangle, computed as one
+        compiled, multi-threaded pass (see AttractRepel.boundary_kernel).
         """
-        returnA = np.empty([len(self.maze_path), 2])
-        R1 = 2.0 * self.R0_B
-
-        for i in range(0,
-                       len(self.maze_path)):
-            fi = np.array([0., 0.])
-            pi = np.array(self.maze_path[i])
-            for j in range(0,
-                           len(self.boundary_seg) - 1):
-                j_pt = self.boundary_seg[j]
-                jp1_pt = self.boundary_seg[j + 1]
-                pi2xij, xij = TSPopt.distABtoP(j_pt, jp1_pt, pi)
-                self.minDist = min(self.minDist, pi2xij)
-                if pi2xij < R1:
-                    fij = (pi - xij) / max(0.00001, pi2xij)
-                    fij *= _repulse(self.R0_B / pi2xij) * self.Fo
-                    fi += fij
-            returnA[i] = fi
-
-        return returnA
+        maze_path = np.asarray(self.maze_path, dtype=np.float64)
+        boundary_seg = np.asarray(self.boundary_seg, dtype=np.float64)
+        out, min_dist = AttractRepel.boundary_kernel(maze_path, boundary_seg, self.R0_B, self.Fo)
+        self.minDist = min(self.minDist, float(min_dist.min()))
+        return out
 
     def resampling(self):
         tmp3 = []
@@ -229,10 +159,7 @@ class Maze:
 
             # compute force on each node
             brownian = self.brownian()
-            if len(self.maze_path) < self.CHUNK:
-                attract_repel = self.attract_repel_serial()
-            else:
-                attract_repel = self.attract_repel_parallel()
+            attract_repel = self.attract_repel()
             fairing = self.faring()
             boundary = self.boundary_slow()
 
@@ -384,11 +311,6 @@ class Maze:
         # whiten
         self.imin /= white
         self.imin += 255 - (255 // white)
-
-        # processor count
-        self.PROCESSORS = multiprocessing.cpu_count()
-        if self.PROCESSORS > 1:
-            self.PROCESSORS -= 1
 
         # quantize
         self.centroids = Quantization.measCentroid(self.imin, levels)
