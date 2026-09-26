@@ -283,9 +283,13 @@ class Segments:
         self.grad[x, y] = 0
 
     def svgwrite(self, fn, broken=False):
-        dwg = svgwrite.Drawing(fn, profile='tiny')
         i = (float(self.ymin),float(self.xmin))
         s = (float(self.ymax-self.ymin),float(self.xmax-self.xmin))
+        # svgwrite.Drawing defaults to width/height="100%" with no viewBox, which
+        # only renders/clips to the viewer's fallback size (often 300x150) when the
+        # file is opened standalone. Size the canvas to the actual content instead.
+        dwg = svgwrite.Drawing(fn, profile='tiny', size=s)
+        dwg.viewbox(minx=i[0], miny=i[1], width=s[0], height=s[1])
         dwg.add(dwg.rect(insert=i, size=s, fill='white'))
         l = []
         for s0 in self.segmentList:
