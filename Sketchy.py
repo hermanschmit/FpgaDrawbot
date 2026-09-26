@@ -122,10 +122,10 @@ class Sketchy:
         self.quant_mat = self.centroids[self.quant_idx, 0]
 
     def untransform(self):
-        rt = ndimage.interpolation.geometric_transform(self.drawn_mat,
-                                                       botTransform,
-                                                       output_shape=self.imat.shape,
-                                                       extra_arguments=(self.m, self.m, self.BASELINE))
+        rt = ndimage.geometric_transform(self.drawn_mat,
+                                         botTransform,
+                                         output_shape=self.imat.shape,
+                                         extra_arguments=(self.m, self.m, self.BASELINE))
         self.drawn_mat = rt[:]
 
     def __init__(self, image_matrix, levels, scale=False, transform=False):
@@ -145,12 +145,12 @@ class Sketchy:
 
             if transform:
                 self.rot_mat = np.rot90(self.imat)
-                self.target_mat = ndimage.interpolation.geometric_transform(self.rot_mat,
-                                                                            botTransformReverse,
-                                                                            output_shape=(512, 512),
-                                                                            extra_arguments=(self.m,
-                                                                                             self.m,
-                                                                                             self.BASELINE))
+                self.target_mat = ndimage.geometric_transform(self.rot_mat,
+                                                               botTransformReverse,
+                                                               output_shape=(512, 512),
+                                                               extra_arguments=(self.m,
+                                                                                self.m,
+                                                                                self.BASELINE))
             else:
                 self.target_mat = self.imat[:]
         else:

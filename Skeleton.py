@@ -30,7 +30,7 @@ class Skeleton:
                       [1, 0, 1],
                       [1, 1, 1]])
 
-        m = ndi.filters.convolve(self.skeleton, k, mode='constant', cval=0)
+        m = ndi.convolve(self.skeleton, k, mode='constant', cval=0)
         nc = np.multiply(m, self.skeleton)
         self.neighbor_count = nc
 

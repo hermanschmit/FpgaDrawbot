@@ -9,7 +9,6 @@ contact: vishwa.hyd@gmail.com
 
 import numpy
 import scipy.ndimage as ndi
-from scipy import *
 from scipy.ndimage import gaussian_filter
 import math
 
@@ -279,7 +278,7 @@ class Canny:
         X, Y = numpy.where(im > thres)
         try:
             idx = Y.argmin()
-        except:
+        except ValueError:
             return -1
         x = X[idx]
         y = Y[idx]

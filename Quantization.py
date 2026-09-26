@@ -1,4 +1,3 @@
-from scipy import *
 from scipy.cluster.vq import kmeans, vq
 import numpy as np
 

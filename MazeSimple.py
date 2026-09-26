@@ -56,7 +56,6 @@ class MazeSimple:
         assert v < 256
         return float(v + 1) / 256.
 
-    @jit(cache=True)
     def brownian(self):
         mean = [0., 0.]
         cov = [[1., 0.], [0., 1.]]
@@ -77,7 +76,6 @@ class MazeSimple:
         # x = 1. + math.log(pixel_val + 1, 2.)
         return x
 
-    @jit
     def R0_val(self, i_pt):
         i_pt0 = max(min(round(i_pt[0]), self.imin.shape[0] - 1), 0)
         i_pt1 = max(min(round(i_pt[1]), self.imin.shape[1] - 1), 0)
@@ -95,7 +93,6 @@ class MazeSimple:
                                                  Fa=self.Fa)
         return np.array(fi_l)
 
-    @jit
     def boundary_slow(self):
         """
         This is the brute force version
