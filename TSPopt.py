@@ -115,6 +115,10 @@ def threeOptLoop(seg0, maxdelta=10):
 
 def threeOptLocal(seg0, nn=5, twoOpt=False):
     totald = 0
+    # Querying for more neighbors than exist makes scipy pad the result with
+    # an out-of-bounds sentinel index (len(seg0)), which can otherwise reach
+    # seg0[e]/seg0[c] below and raise IndexError.
+    nn = min(nn, len(seg0))
     kdtree = spatial.cKDTree(seg0)
     for a in range(len(seg0) - 1):
         _, n_neighbor_i = kdtree.query(seg0[a], nn)
@@ -122,6 +126,13 @@ def threeOptLocal(seg0, nn=5, twoOpt=False):
         nn_list = list(n_neighbor_i)
         while len(nn_list) > 2:
             c = nn_list.pop(0)
+            # Reset per candidate c: if no e below ends up calling threeOpt
+            # (e.g. every candidate fails the filters below), delta must
+            # reflect that nothing happened here, not linger from an
+            # unrelated earlier c or a -- otherwise this can either crash
+            # (first time it happens at all) or silently break out early on
+            # a stale value from a previous iteration.
+            delta = 0
             if c <= a + 1:
                 continue
             for e in nn_list:
