@@ -282,6 +282,20 @@ class Segments:
         self.grad[:, :] = 255
         self.grad[x, y] = 0
 
+    def savePreview(self, fn, scale=1):
+        """
+        Write the stroke preview: a vector SVG if fn ends in .svg (zoomable,
+        exact geometry), otherwise the Bresenham raster from segment2grad.
+        Call before scaleBin() so the preview is in image pixel units.
+        """
+        if fn.lower().endswith('.svg'):
+            self.svgwrite(fn)
+        else:
+            import imageio.v2 as imageio
+            self.segment2grad(interior=True, scale=scale)
+            self.renderGrad()
+            imageio.imwrite(fn, self.grad.astype(numpy.uint8))
+
     def svgwrite(self, fn, broken=False):
         i = (float(self.ymin),float(self.xmin))
         s = (float(self.ymax-self.ymin),float(self.xmax-self.xmin))

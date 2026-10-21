@@ -1,7 +1,6 @@
 __author__ = 'herman'
 import argparse
 import imageio.v2 as imageio
-import numpy as np
 import Maze
 
 
@@ -18,13 +17,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None,
     m.maze_to_segments()
     m.segments.chaikin_smoothing(2, limit=1e-4)
     m.segments.simplify()
-    m.segments.segment2grad(interior=True, scale=2)
-    m.segments.renderGrad()
-
-    im2 = np.astype(m.segments.grad, np.uint8)
-    print(im2.shape)
-    print(im2.dtype)
-    imageio.imwrite(ofile_name1, im2, mode="L")
+    m.segments.savePreview(ofile_name1, scale=2)
     if svg_file!=None:
         m.segments.svgwrite(svg_file)
     m.segments.scaleBin()

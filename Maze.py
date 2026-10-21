@@ -478,7 +478,6 @@ class Maze:
             blacks = Quantization.quantMatrix(self.imin, q, b)
             skeleton = Skeleton.Skeleton(blacks)
 
-            skeleton.segments.addInitialStartPt()
             skeleton.euclidMstOrder()
             skeleton.segments.concatSegments()
 

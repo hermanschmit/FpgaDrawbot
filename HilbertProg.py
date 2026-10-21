@@ -1,7 +1,6 @@
 import sys
 
 import imageio.v2 as imageio
-import numpy as np
 import Hilbert
 
 
@@ -9,10 +8,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin"):
     im = imageio.imread(ifile_name, mode='F')
     # im = ndimage.interpolation.zoom(im,0.5)
     h = Hilbert.Hilbert(im)
-    h.segments.segment2grad(interior=True, scale=2)
-    h.segments.renderGrad()
-    im = h.segments.grad.astype(np.uint8)
-    imageio.imsave(ofile_name1, im)
+    h.segments.savePreview(ofile_name1, scale=2)
     h.segments.scaleBin()
     h.binWrite(bin_fn)
 

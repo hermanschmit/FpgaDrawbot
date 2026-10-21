@@ -2,7 +2,6 @@ __author__ = 'herman'
 import sys
 
 import imageio.v2 as imageio
-import numpy as np
 import MazeSimple
 
 
@@ -13,10 +12,7 @@ def main(ifile_name, ofile_name1, bin_fn="bfile.bin", svg_file=None):
 
     #m.mazeSegmentOptimize()
     m.maze_to_segments()
-    m.segments.segment2grad(interior=True, scale=2)
-    m.segments.renderGrad()
-    im = m.segments.grad.astype(np.uint8)
-    imageio.imsave(ofile_name1, im)
+    m.segments.savePreview(ofile_name1, scale=2)
     if svg_file!=None:
         m.segments.svgwrite(svg_file)
     m.segments.scaleBin()

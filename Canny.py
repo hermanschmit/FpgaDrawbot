@@ -56,9 +56,6 @@ class Canny:
         emst2.segmentOrdering()
         self.segments.segmentList = emst2.newSegmentTree  # TODO fix
 
-    def addInitialStartPt(self):
-        self.segments.addInitialStartPt()
-
     def segment2grad(self, interior=False):
         self.segments.segment2grad(interior)
 
