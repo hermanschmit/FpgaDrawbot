@@ -31,6 +31,17 @@ from skimage.transform import resize
 import Segments
 
 
+def tone_map(im, shape, white_cut=0.1, gamma=0.7):
+    """Grayscale image (0 = black, 255 = white) -> darkness in [0, 1] at
+    `shape`: auto-levels (2nd..98th percentile stretched to 0..1), darkness
+    below white_cut treated as paper white, then gamma (<1 darkens midtones)."""
+    dark = np.clip(1.0 - resize(np.asarray(im, dtype=float), shape, anti_aliasing=True) / 255.0,
+                   0.0, 1.0)
+    lo, hi = np.percentile(dark, [2, 98])
+    dark = np.clip((dark - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    return np.clip((dark - white_cut) / (1.0 - white_cut), 0.0, 1.0) ** gamma
+
+
 class Guilloche:
     def __init__(self, im, canvas_size=800, turns=80, shape='ellipse',
                  wavelength=1.0, amplitude=0.9, freq_mod=1.0,
@@ -63,10 +74,7 @@ class Guilloche:
         h0, w0 = im.shape
         s = canvas_size / max(h0, w0)
         h, w = max(2, int(round(h0 * s))), max(2, int(round(w0 * s)))
-        dark = np.clip(1.0 - resize(im, (h, w), anti_aliasing=True) / 255.0, 0.0, 1.0)
-        lo, hi = np.percentile(dark, [2, 98])
-        dark = np.clip((dark - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-        dark = np.clip((dark - white_cut) / (1.0 - white_cut), 0.0, 1.0) ** gamma
+        dark = tone_map(im, (h, w), white_cut, gamma)
 
         # Radii of the inscribed shape, shrunk so every modulation stays on canvas.
         r_row, r_col = (h - 1) / 2.0, (w - 1) / 2.0

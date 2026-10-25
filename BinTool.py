@@ -156,13 +156,15 @@ def svg_write(pts, mm, pen_mm, fn):
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Inspect / shrink drawbot .bin files')
     ap.add_argument('input_bin_fn')
-    ap.add_argument('--size_mm', type=float, default=200.0,
-                    help='Physical size of the longest side of the drawing')
+    ap.add_argument('--size_mm', type=float, default=342.0,
+                    help='Physical size of the longest side of the drawing (the bot draws the [-1, 1] range as 342 mm)')
     ap.add_argument('--pen_mm', type=float, default=0.5, help='Pen line width')
     ap.add_argument('--grid_mm', type=float, default=0.0,
                     help='Snap to this machine resolution before simplifying (0 = off)')
-    ap.add_argument('--tol_mm', type=float, default=None,
-                    help='RDP max deviation (default: pen_mm / 5)')
+    ap.add_argument('--tol_mm', type=float, default=0.05,
+                    help='RDP max deviation. Default 0.05 mm: on the calibration '
+                         'drawing, +-0.043 mm jitter looked straight and a '
+                         '0.1 mm bump was invisible')
     ap.add_argument('--out', default=None, help='Write shrunk .bin here')
     ap.add_argument('--png', default=None,
                     help='Write original | shrunk | difference render here')
@@ -179,7 +181,7 @@ def main(argv=None):
             svg_write(pts, mm, args.pen_mm, args.svg)
         return
 
-    tol = args.pen_mm / 5 if args.tol_mm is None else args.tol_mm
+    tol = args.tol_mm
     new = snap(pts, args.grid_mm / mm) if args.grid_mm > 0 else dedupe(pts)
     new = rdp(new, tol / mm)
     stats(new, mm, args.pen_mm, args.grid_mm, "shrunk (tol %.3f mm)" % tol)
